@@ -53,4 +53,5 @@ jobs:
           for _ in $(seq 1 20); do curl -fsS localhost:8000/api/health && break; sleep 1; done
           curl -fsS localhost:8000/api/health
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"link":"https://vimeo.com/1"}' localhost:8000/api/importar)" = 400
+          test "$(curl -s -o /dev/null -w '%{http_code}' -F 'arquivo=@/dev/null;filename=vazio.mp3' localhost:8000/api/enviar)" = 400
           docker rm -f piano-api-ci
