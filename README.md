@@ -3,6 +3,10 @@
 "Guitar Hero do piano" para iniciantes, inspirado no canal PHianonize: notas caindo sobre o teclado,
 com controle total da linha do tempo, modo espera e entrada pelo teclado do computador, pela tela ou por teclado MIDI.
 
+## Publicação
+
+O jogo fica em https://piano.imp-software.cloud, na mesma VPS do coda. Cada push na `main` passa pelo CI e, se estiver verde, o workflow `deploy` publica a imagem `ghcr.io/jpmvale/piano-web` e troca o container na VPS. Detalhes e primeiro deploy em [docs/deploy-vps.md](docs/deploy-vps.md).
+
 ## Rodar
 
 ```bash

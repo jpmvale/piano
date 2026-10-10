@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Garante que a imagem de produção também compila.
+      - run: docker build -t piano:ci .
+      - name: imagem responde
+        run: |
+          docker run -d --name piano-ci -p 8080:8080 piano:ci
+          for _ in $(seq 1 10); do curl -fsS localhost:8080/health && break; sleep 1; done
+          curl -fsS -o /dev/null localhost:8080/
+          docker rm -f piano-ci
