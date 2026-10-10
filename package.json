@@ -1,0 +1,19 @@
+{
+  "name": "piano-cascata",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/to-artifact.mjs",
+    "samples": "bash scripts/make-samples.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4",
+    "vite-plugin-singlefile": "^2.3.3"
+  },
+  "dependencies": {
+    "@tonejs/midi": "^2.0.28"
+  }
+}

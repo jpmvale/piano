@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piano Cascata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=JetBrains+Mono:wght@500;700&display=swap">
+<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+<header>
+  <div class="brand"><h1>Piano <span>Cascata</span></h1></div>
+  <div class="songs" id="songs" role="group" aria-label="Escolher música"></div>
+  <label class="btn ghost" id="openMidi" title="Abrir um arquivo .mid do seu computador">
+    <svg viewBox="0 0 24 24"><path d="M12 4l5 5h-3v6h-4V9H7zM5 18h14v2H5z"/></svg>Abrir MIDI
+    <input type="file" id="midiFile" accept=".mid,.midi,audio/midi" hidden>
+  </label>
+  <div class="meta" id="meta"></div>
+</header>
+
+<div id="stage"><canvas id="cv" aria-label="Notas caindo sobre o teclado. Arraste para cima ou para baixo para mover a música; clique nas teclas para tocar."></canvas></div>
+
+<div class="controls">
+  <div class="timeline">
+    <span class="time" id="tNow">0:00</span>
+    <div id="track" tabindex="0" role="slider" aria-label="Posição na música">
+      <div class="rail"></div>
+      <div id="ticks"></div>
+      <div class="loop" id="loopBox" hidden></div>
+      <div class="fill" id="fill"></div>
+      <div class="thumb" id="thumb"></div>
+    </div>
+    <span class="time" id="tEnd">0:00</span>
+  </div>
+
+  <div class="bar">
+    <div class="group">
+      <button class="btn" id="stop" title="Parar e voltar ao início (Esc)" aria-label="Parar"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+      <button class="btn" id="prev" title="Compasso anterior (←)" aria-label="Compasso anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg></button>
+      <button class="btn play" id="play" title="Tocar / pausar (Espaço)" aria-label="Tocar"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="btn" id="next" title="Próximo compasso (→)" aria-label="Próximo compasso"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
+      <span id="bar" class="readout">Compasso –/12</span>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Velocidade</span>
+      <button class="btn" id="slower" title="Mais devagar (↓)" aria-label="Mais devagar">−</button>
+      <span id="speedVal" class="readout">100%</span>
+      <button class="btn" id="faster" title="Mais rápido (↑)" aria-label="Mais rápido">+</button>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Trecho</span>
+      <button class="btn" id="markA" title="Marcar início do trecho aqui ([)">A</button>
+      <button class="btn" id="markB" title="Marcar fim do trecho aqui (])">B</button>
+      <button class="btn" id="loopBtn" aria-pressed="false" title="Repetir o trecho A–B (\)">Repetir</button>
+      <button class="btn" id="clearLoop" title="Apagar o trecho" aria-label="Apagar o trecho">×</button>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="group" role="group" aria-label="O que você vai tocar">
+      <span class="group-label">Eu toco</span>
+      <div class="seg" id="mode">
+        <button data-mode="listen" aria-pressed="true">Só ouvir</button>
+        <button data-mode="R" aria-pressed="false"><span class="dot r"></span>Mão direita</button>
+        <button data-mode="L" aria-pressed="false"><span class="dot l"></span>Mão esquerda</button>
+        <button data-mode="both" aria-pressed="false">As duas</button>
+      </div>
+    </div>
+    <button class="btn" id="waitBtn" aria-pressed="true" title="A música para em cada nota sua até você acertar">Esperar por mim</button>
+    <div class="score" id="score" hidden>
+      <span><b id="sHit">0</b> acertos</span>
+      <span><b id="sMiss">0</b> perdidas</span>
+      <span><b id="sWrong">0</b> teclas erradas</span>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="group">
+      <label class="group-label" for="names">Nomes</label>
+      <select id="names">
+        <option value="en">C D E</option>
+        <option value="pt">Dó Ré Mi</option>
+        <option value="none">Sem nomes</option>
+      </select>
+    </div>
+    <button class="btn" id="pcKeys" aria-pressed="false" title="Mostrar quais teclas do computador tocam cada nota">Teclas do computador</button>
+    <button class="btn" id="midiBtn" title="Usar um teclado MIDI ligado por USB ou Bluetooth">Conectar teclado MIDI</button>
+    <span class="status" id="midiStatus"></span>
+  </div>
+
+  <p class="hint">
+    <kbd>Espaço</kbd> tocar/pausar · <kbd>←</kbd><kbd>→</kbd> compasso · <kbd>↑</kbd><kbd>↓</kbd> velocidade · <kbd>Esc</kbd> parar · <kbd>[</kbd><kbd>]</kbd><kbd>\</kbd> trecho ·
+    arraste as notas para voltar ou avançar · toque nas teclas da tela ou nas fileiras <kbd>Z</kbd>…<kbd>M</kbd> e <kbd>Q</kbd>…<kbd>P</kbd> do computador
+  </p>
+  <p class="credits">Som de piano: amostras de <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noopener">tonejs-instruments</a>, de Nicholaus Brosowsky (CC BY 3.0).</p>
+</div>
+</body>
+</html>

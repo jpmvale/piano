@@ -1,0 +1,125 @@
+/* Layout: app de tela cheia. Cabeçalho com músicas, palco (notas caindo + teclado) ocupando o resto, controles embaixo. */
+:root {
+  color-scheme: dark;
+  --bg: #0d0f16;
+  --stage: #11131b;
+  --panel: #171a24;
+  --line: #262b3a;
+  --line-strong: #3a4155;
+  --fg: #eceef4;
+  --muted: #8d94a8;
+  --right: #a8ef55;      /* mão direita, como no PHianonize */
+  --left: #82b2f0;       /* mão esquerda */
+  --hit: #ff4d5e;        /* linha de toque */
+  --focus: #ffd166;
+  --font-display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 14px;
+  display: grid; grid-template-rows: auto minmax(280px, 1fr) auto;
+  overflow-x: hidden;
+}
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+a { color: var(--muted); }
+
+header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 12px 16px;
+}
+.brand h1 {
+  font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1;
+  margin: 0; letter-spacing: -0.01em;
+}
+.brand h1 span { color: var(--right); }
+.songs { display: flex; flex-wrap: wrap; gap: 6px; }
+.song {
+  background: transparent; border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 14px; cursor: pointer; font-weight: 600; color: var(--muted);
+}
+.song:hover { color: var(--fg); border-color: var(--line-strong); }
+.song[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.meta { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+#stage { position: relative; min-height: 0; padding-inline: 16px; }
+#cv {
+  display: block; width: 100%; height: 100%;
+  border-radius: 10px 10px 4px 4px; background: var(--stage);
+  touch-action: none; cursor: grab;
+}
+#cv.dragging { cursor: grabbing; }
+
+.controls { display: grid; gap: 10px; padding: 12px 16px 14px; }
+.timeline { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.time, .readout { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.time { min-width: 4.2ch; }
+#track { position: relative; height: 28px; cursor: pointer; touch-action: none; }
+#track .rail { position: absolute; left: 0; right: 0; top: 12px; height: 4px; border-radius: 2px; background: var(--line); }
+#track .fill { position: absolute; left: 0; top: 12px; height: 4px; border-radius: 2px; background: var(--right); }
+#track .loop { position: absolute; top: 6px; height: 16px; border-radius: 4px; background: rgba(255, 209, 102, 0.18); border: 1px solid rgba(255, 209, 102, 0.55); }
+#track .tick { position: absolute; top: 9px; width: 1px; height: 10px; background: #343a4d; }
+#track .thumb {
+  position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%;
+  background: var(--fg); box-shadow: 0 0 0 4px rgba(168, 239, 85, 0.25);
+}
+#track:focus-visible { outline-offset: 0; border-radius: 6px; }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.group { display: flex; align-items: center; gap: 6px; }
+.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; min-width: 36px; padding: 0 10px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--line); cursor: pointer; font-weight: 600;
+}
+.btn:hover { border-color: var(--line-strong); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn svg { width: 18px; height: 18px; fill: currentColor; }
+.btn.ghost { background: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); }
+.btn.play { width: 52px; height: 44px; border-radius: 12px; background: var(--right); color: #10140a; border-color: transparent; }
+.btn.play svg { width: 22px; height: 22px; }
+.btn[aria-pressed="true"] { border-color: var(--focus); color: var(--focus); }
+#speedVal { min-width: 4.5ch; text-align: center; font-size: 13px; color: var(--fg); }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; flex-wrap: wrap; }
+.seg button {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  background: var(--panel); border: 0; border-right: 1px solid var(--line); cursor: pointer; font-weight: 600; color: var(--muted);
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.dot.r { background: var(--right); }
+.dot.l { background: var(--left); }
+
+.score { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.score b { font-family: var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.status { font-size: 13px; color: var(--muted); }
+
+select { height: 36px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); padding: 0 8px; }
+.hint, .credits { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.7; }
+.credits { font-size: 11px; opacity: 0.8; }
+kbd {
+  font-family: var(--font-mono); font-size: 11px; padding: 1px 5px; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+}
+@media (max-width: 640px) {
+  .meta { margin-left: 0; width: 100%; }
+  .hint, #pcKeys { display: none; }
+  .bar { gap: 8px 12px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .seg button { justify-content: center; border-bottom: 1px solid var(--line); }
+  .seg button:nth-child(2n) { border-right: 0; }
+  #mode { flex: 1; }
+  .group:has(#mode) { flex-wrap: wrap; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
