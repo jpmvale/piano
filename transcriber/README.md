@@ -15,7 +15,7 @@ Os MIDI prontos ficam no volume `/data/midi`, então importar o mesmo vídeo de 
 
 - Cerca de **2x a duração da música**: 40 s de áudio levam ~95 s. Uma música de 3 minutos, ~6 minutos.
 - Pico de **~2 GB de memória** durante a transcrição, devolvida ao fim (cada música roda num processo separado).
-- Limite de 8 minutos por vídeo e 5 vídeos na fila (`MAX_MINUTOS`, `MAX_FILA`).
+- Limite de 15 minutos por música e 5 vídeos na fila (`MAX_MINUTOS`, `MAX_FILA`).
 
 ## Rodar na sua máquina
 
@@ -33,7 +33,7 @@ Testes: `python -m unittest` (links aceitos e recusados). Transcrição de um tr
 
 ## Envio de arquivo de áudio
 
-`POST /api/enviar` (campo `arquivo`, multipart, até `MAX_MB_ENVIO` = 40 MB) põe um áudio na mesma
+`POST /api/enviar` (campo `arquivo`, multipart, até `MAX_MB_ENVIO` = 60 MB) põe um áudio na mesma
 fila. O id é o começo do sha256 do arquivo, então reenviar o mesmo áudio devolve o MIDI já pronto.
 É a saída para quando o YouTube barra o servidor, e para gravações que não estão no YouTube.
 

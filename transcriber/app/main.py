@@ -31,8 +31,8 @@ from . import youtube
 DADOS = os.environ.get('DADOS', '/data')
 PASTA_MIDI = os.path.join(DADOS, 'midi')
 PASTA_ENVIOS = os.path.join(DADOS, 'envios')
-MAX_MB_ENVIO = int(os.environ.get('MAX_MB_ENVIO', '40'))
-MAX_MINUTOS = float(os.environ.get('MAX_MINUTOS', '8'))
+MAX_MB_ENVIO = int(os.environ.get('MAX_MB_ENVIO', '60'))
+MAX_MINUTOS = float(os.environ.get('MAX_MINUTOS', '15'))
 MAX_FILA = int(os.environ.get('MAX_FILA', '5'))
 # Medido: o Transkun leva perto de 2x a duração da música em 2 núcleos.
 FATOR_TEMPO = float(os.environ.get('FATOR_TEMPO', '2.2'))
@@ -113,7 +113,7 @@ def _duracao(arquivo: str) -> float:
 
 def _limite(duracao: float, o_que: str) -> None:
     if duracao > MAX_MINUTOS * 60:
-        raise ErroParaPessoa(f'{o_que} tem {duracao / 60:.0f} minutos. O limite é {MAX_MINUTOS:.0f} minutos por música.')
+        raise ErroParaPessoa(f'{o_que} tem {duracao / 60:.1f} minutos. O limite é {MAX_MINUTOS:.0f} minutos por música.')
 
 
 def _processar(t: Trabalho) -> None:

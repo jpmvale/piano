@@ -163,7 +163,7 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
     const file = fileInput.files?.[0];
     fileInput.value = '';
     if (!file) return;
-    if (file.size > 40 * 1024 * 1024) return fail('O arquivo passa de 40 MB.');
+    if (file.size > 60 * 1024 * 1024) return fail('O arquivo passa de 60 MB.');
     const body = new FormData();
     body.append('arquivo', file);
     void run(() => api<Status>('/api/enviar', { method: 'POST', body }));
