@@ -3,6 +3,10 @@
 "Guitar Hero do piano" para iniciantes, inspirado no canal PHianonize: notas caindo sobre o teclado,
 com controle total da linha do tempo, modo espera e entrada pelo teclado do computador, pela tela ou por teclado MIDI.
 
+## Jogar
+
+Versão publicada: https://jpmvale.github.io/piano/ (atualizada a cada push na `main` pelo GitHub Actions).
+
 ## Rodar
 
 ```bash
