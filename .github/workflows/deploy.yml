@@ -1,0 +1,103 @@
+name: deploy
+
+# Mesmo caminho do coda: depois do CI verde na main, publica a imagem no GHCR
+# e pede para a VPS trocar o container por SSH.
+on:
+  workflow_run:
+    # Nome EXATO do ci.yml; o casamento é literal.
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Republicar o commit atual sem push vazio. Pula o CI: só para reparo.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Publica exatamente o commit que passou no CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: sha curto
+        id: sha
+        run: echo "tag=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # O repositório é público, então o GITHUB_TOKEN basta para o GHCR
+      # (no coda, que é privado, foi preciso um PAT).
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/jpmvale/piano:${{ steps.sha.outputs.tag }}
+            ghcr.io/jpmvale/piano:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: publicar na VPS
+        env:
+          CHAVE: ${{ secrets.VPS_DEPLOY_KEY }}
+          MAQUINA: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          # Chave OpenSSH sem quebra de linha final é recusada; o GitHub apara o newline.
+          printf '%s\n' "$CHAVE" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          ssh-keygen -y -f ~/.ssh/deploy > /dev/null \
+            || { echo "::error::a chave privada em VPS_DEPLOY_KEY está malformada"; exit 1; }
+
+          # Repete só quando a conexão não se estabeleceu (código 255): a rede
+          # entre o runner e a VPS já falhou de forma intermitente no coda.
+          conectar() {
+            rm -f ~/.ssh/known_hosts
+            ssh-keyscan -H "$MAQUINA" >> ~/.ssh/known_hosts 2>/dev/null || return 255
+            [ -s ~/.ssh/known_hosts ] || return 255
+            set +e
+            ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              deploy@"$MAQUINA" "piano ${{ steps.sha.outputs.tag }}"
+            local c=$?
+            set -e
+            return $c
+          }
+
+          for tentativa in 1 2 3; do
+            set +e
+            conectar
+            CODIGO=$?
+            set -e
+            if [ "$CODIGO" -ne 255 ]; then break; fi
+            if [ "$tentativa" -lt 3 ]; then
+              echo "::warning::tentativa ${tentativa} não alcançou a VPS (rede); repetindo em $((tentativa * 15))s"
+              sleep $((tentativa * 15))
+            fi
+          done
+
+          if [ "$CODIGO" -eq 0 ]; then exit 0; fi
+          if [ "$CODIGO" -eq 255 ]; then
+            echo "::error::as 3 tentativas não alcançaram a VPS (código 255)."
+          else
+            echo "::error::a VPS recusou ou falhou no deploy de '${{ steps.sha.outputs.tag }}' (código $CODIGO). Veja o log do script de deploy na VPS."
+          fi
+          exit "$CODIGO"

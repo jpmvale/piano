@@ -3,6 +3,10 @@
 "Guitar Hero do piano" para iniciantes, inspirado no canal PHianonize: notas caindo sobre o teclado,
 com controle total da linha do tempo, modo espera e entrada pelo teclado do computador, pela tela ou por teclado MIDI.
 
+## Publicação
+
+Cada push na `main` passa pelo CI e, se estiver verde, o workflow `deploy` publica a imagem `ghcr.io/jpmvale/piano` e pede para a VPS (a mesma do coda) trocar o container. O Caddy do coda serve o jogo com HTTPS. Detalhes da parte da VPS em [docs/deploy-vps.md](docs/deploy-vps.md).
+
 ## Rodar
 
 ```bash
