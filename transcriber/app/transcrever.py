@@ -27,8 +27,13 @@ def transcrever(entrada: str, saida: str) -> int:
     import transkun
     from transkun.Data import writeMidi
 
-    torch.set_num_threads(int(os.environ.get('THREADS', '2')))
+    if os.environ.get('THREADS'):
+        torch.set_num_threads(int(os.environ['THREADS']))
     torch.set_grad_enabled(False)
+    # cpu na VPS; no Mac, `mps` usa a GPU do chip Apple (DEVICE=auto escolhe sozinho).
+    dispositivo = os.environ.get('DEVICE', 'cpu')
+    if dispositivo == 'auto':
+        dispositivo = 'mps' if torch.backends.mps.is_available() else 'cpu'
 
     pasta = os.path.join(os.path.dirname(transkun.__file__), 'pretrained')
     conf = moduleconf.parseFromFile(os.path.join(pasta, '2.0.conf'))['Model']
@@ -36,9 +41,10 @@ def transcrever(entrada: str, saida: str) -> int:
     pesos = torch.load(os.path.join(pasta, '2.0.pt'), map_location='cpu')
     modelo.load_state_dict(pesos.get('best_state_dict', pesos.get('state_dict')), strict=False)
     modelo.eval()
+    modelo.to(dispositivo)
 
     audio = ler_audio(entrada, modelo.fs)
-    notas = modelo.transcribe(torch.from_numpy(audio), discardSecondHalf=False)
+    notas = modelo.transcribe(torch.from_numpy(audio).to(dispositivo), discardSecondHalf=False)
     midi = writeMidi(notas)
     midi.write(saida)
     return sum(len(i.notes) for i in midi.instruments)

@@ -15,6 +15,7 @@ interface Status {
   decorrido?: number;
   estimativa?: number;
   erro?: string;
+  onde?: 'vps' | 'mac';
 }
 
 const SAVED_KEY = 'pc-youtube';
@@ -102,6 +103,9 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
     } else if (s.estado === 'pronto') {
       pct = 100;
     }
+    if (s.onde === 'mac' && (s.estado === 'baixando' || s.estado === 'transcrevendo')) {
+      state.textContent = ESTADOS[s.estado].replace('…', ' no seu Mac…');
+    }
     detail.textContent = text;
     bar.style.width = pct + '%';
   }
@@ -163,7 +167,7 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
     const file = fileInput.files?.[0];
     fileInput.value = '';
     if (!file) return;
-    if (file.size > 40 * 1024 * 1024) return fail('O arquivo passa de 40 MB.');
+    if (file.size > 60 * 1024 * 1024) return fail('O arquivo passa de 60 MB.');
     const body = new FormData();
     body.append('arquivo', file);
     void run(() => api<Status>('/api/enviar', { method: 'POST', body }));

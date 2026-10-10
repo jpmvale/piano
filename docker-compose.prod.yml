@@ -32,14 +32,20 @@ services:
     restart: unless-stopped
     environment:
       THREADS: "2"
-      MAX_MINUTOS: "8"
+      MAX_MINUTOS: "15"
       MAX_FILA: "5"
-      MAX_MB_ENVIO: "40"
+      MAX_MB_ENVIO: "60"
       # O YouTube pede login para downloads vindos da VPS. Com o arquivo de
       # cookies em ~/apps/piano-cookies/youtube.txt, o yt-dlp entra como a conta
       # que exportou os cookies (ver transcriber/README.md). Sem o arquivo, segue
       # sem cookies.
       YTDLP_COOKIES: /cookies/youtube.txt
+    # Configuração que não vai para o repositório: MAC_TOKEN (liga a transcrição
+    # no Mac, ver transcriber/mac/README.md) e MODO_TRANSCRICAO. Opcional: sem
+    # o arquivo, a própria VPS transcreve, como antes.
+    env_file:
+      - path: ${HOME}/apps/piano-api.env
+        required: false
     volumes:
       - piano-dados:/data
       # Fora do repositório (~/apps/piano é um checkout) e só leitura: o

@@ -7,3 +7,5 @@ yt-dlp[default,deno]>=2026.8.19
 fastapi==0.143.0
 uvicorn==0.54.0
 python-multipart==0.0.32
+# Só para os testes da API (fastapi.testclient), que rodam no CI dentro da imagem.
+httpx==0.28.1
