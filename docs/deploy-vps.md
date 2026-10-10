@@ -10,10 +10,10 @@ em **https://piano.imp-software.cloud**. A configuração da máquina está no r
 2. CI verde e `DEPLOY_ENABLED=true` → workflow **deploy** publica `ghcr.io/jpmvale/piano-web:<sha>`
    e roda `ssh deploy@VPS "piano <sha>"`.
 3. Na VPS, o forced command `~/bin/deploy.sh` faz checkout do mesmo commit em `~/apps/piano`,
-   puxa a imagem e troca o container `piano-web`. Depois confere a raiz (200) e `/health` (200)
-   pela URL pública e, se falhar, volta para a versão anterior sozinho.
+   puxa as imagens e troca os containers `piano-web` e `piano-api`. Depois confere a raiz (200) e
+   `/api/health` (200) pela URL pública e, se falhar, volta para a versão anterior sozinho.
 4. O Caddy compartilhado (`~/caddy`) encaminha `piano.imp-software.cloud` para `piano-web:8080`
-   pela rede `edge` e cuida do HTTPS.
+   pela rede `edge` e cuida do HTTPS. O nginx do `piano-web` encaminha `/api/` para `piano-api:8000`.
 
 ## Primeiro deploy (uma vez só)
 
@@ -34,3 +34,20 @@ em **https://piano.imp-software.cloud**. A configuração da máquina está no r
    valores usados no coda: `VPS_HOST` e `VPS_DEPLOY_KEY`.
 5. Rodar o workflow **deploy** manualmente (Actions → deploy → Run workflow) e conferir o site.
 6. Ligar o automático: variável de repositório `DEPLOY_ENABLED` = `true`.
+
+## Importação pelo YouTube (uma vez só)
+
+O serviço `piano-api` entrou depois do primeiro deploy. Ordem para ligá-lo:
+
+1. Merge do PR do piano que cria o serviço. O deploy automático dessa versão ainda troca só o
+   `piano-web` (o `deploy.sh` da VPS ainda não conhece a `api`), mas já publica a imagem
+   `ghcr.io/jpmvale/piano-api`. Enquanto isso, o jogo funciona e só a importação responde
+   "o serviço de importação não está no ar".
+2. Na página do pacote `piano-api` no GitHub (Packages), conferir que está **público**, como o
+   `piano-web`; a VPS puxa sem login.
+3. Merge do PR do vps-infra que acrescenta a `api` ao `bin/deploy.sh` e aplicar na VPS:
+   ```bash
+   # da sua máquina, na pasta do vps-infra
+   scp bin/deploy.sh vps:~/bin/deploy.sh
+   ```
+4. Rodar o workflow **deploy** manualmente para subir as duas peças juntas.

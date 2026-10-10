@@ -5,6 +5,7 @@ import { songFromMidiFile } from './midiImport';
 import { LEAD, Player, type Mode } from './player';
 import { Renderer, NAMES, type NameStyle, type Pressed } from './renderer';
 import { BUILTIN_SONGS, type Song } from './songs';
+import { initYoutubeImport } from './youtubeImport';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -42,7 +43,9 @@ function loadSong(i: number) {
   updatePcBase();
   renderSongButtons();
   renderTicks();
-  const parts = [s.key, `${s.beatsPerBar}/4`, `${s.bpm} BPM`, `${s.bars.length} compassos`].filter(Boolean);
+  const parts = s.bpm
+    ? [s.key, `${s.beatsPerBar}/4`, `${s.bpm} BPM`, `${s.bars.length} compassos`].filter(Boolean)
+    : ['Transcrita do YouTube'];
   $('meta').textContent = parts.join(' · ');
   refreshLoop();
   setPlayIcon();
@@ -71,6 +74,11 @@ $<HTMLInputElement>('midiFile').addEventListener('change', async e => {
   } catch (err) {
     $('meta').textContent = 'Não consegui ler esse arquivo: ' + ((err as Error).message || 'formato desconhecido');
   }
+});
+
+initYoutubeImport((song, open) => {
+  songs.push(song);
+  if (open) loadSong(songs.length - 1); else renderSongButtons();
 });
 
 // Teclas do computador começam no Dó mais grave da parte que você toca
@@ -154,7 +162,7 @@ $('midiBtn').onclick = () => {
 };
 
 document.addEventListener('keydown', e => {
-  if ((e.target as HTMLElement).closest('select, input') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.target as HTMLElement).closest('select, input, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === ' ' && (e.target as HTMLElement).closest('button')) return;
   switch (e.key) {
     case ' ': e.preventDefault(); togglePlay(); break;

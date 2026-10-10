@@ -1,0 +1,8 @@
+# O torch (só CPU) é instalado antes, no Dockerfile, pelo índice do PyTorch:
+# o do PyPI traz as bibliotecas de CUDA e passa de 4 GB.
+transkun==2.0.1
+# YouTube muda com frequência e versões velhas do yt-dlp param de baixar.
+# O extra `deno` traz o interpretador de JavaScript que ele exige para o YouTube.
+yt-dlp[default,deno]>=2026.8.19
+fastapi==0.143.0
+uvicorn==0.54.0

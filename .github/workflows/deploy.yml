@@ -58,6 +58,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - uses: docker/build-push-action@v6
+        with:
+          context: transcriber
+          push: true
+          tags: |
+            ghcr.io/jpmvale/piano-api:${{ steps.sha.outputs.tag }}
+            ghcr.io/jpmvale/piano-api:latest
+          cache-from: type=gha,scope=piano-api
+          cache-to: type=gha,mode=max,scope=piano-api
+
       - name: publicar na VPS
         env:
           CHAVE: ${{ secrets.VPS_DEPLOY_KEY }}

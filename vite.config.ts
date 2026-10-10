@@ -6,4 +6,6 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   plugins: [viteSingleFile()],
   build: { assetsInlineLimit: 100_000_000 },
+  // `npm run dev` com o serviço de importação rodando na porta 8000 (transcriber/README.md)
+  server: { proxy: { '/api': 'http://localhost:8000' } },
 });

@@ -43,7 +43,7 @@ export class ComputerKeyboard {
 
   private key(e: KeyboardEvent, on: boolean) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if ((e.target as HTMLElement).closest?.('input, select, textarea')) return;
+    if ((e.target as HTMLElement).closest?.('input, select, textarea, dialog')) return;
     const step = CODE_TO_STEP[e.code];
     if (step === undefined) return;
     e.preventDefault();
