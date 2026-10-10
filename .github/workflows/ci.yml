@@ -24,3 +24,33 @@ jobs:
           for _ in $(seq 1 10); do curl -fsS localhost:8080/health && break; sleep 1; done
           curl -fsS -o /dev/null localhost:8080/
           docker rm -f piano-ci
+
+  transcriber:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: transcriber
+          load: true
+          tags: piano-api:ci
+          cache-from: type=gha,scope=piano-api
+          cache-to: type=gha,mode=max,scope=piano-api
+      - name: testes
+        run: docker run --rm piano-api:ci python -m unittest -v
+      # Prova que o modelo carrega e transcreve dentro da imagem: um trecho de
+      # 7 s da Ode à Alegria (sintetizado com as amostras do jogo) tem 15 notas.
+      - name: transcreve um trecho
+        run: |
+          SAIDA=$(docker run --rm piano-api:ci python -m app.transcrever tests/trecho.mp3 /tmp/trecho.mid)
+          echo "$SAIDA"
+          NOTAS=$(echo "$SAIDA" | tail -1 | cut -d' ' -f1)
+          [ "$NOTAS" -ge 10 ] && [ "$NOTAS" -le 20 ] || { echo "::error::esperava ~15 notas, vieram $NOTAS"; exit 1; }
+      - name: api responde
+        run: |
+          docker run -d --name piano-api-ci -p 8000:8000 piano-api:ci
+          for _ in $(seq 1 20); do curl -fsS localhost:8000/api/health && break; sleep 1; done
+          curl -fsS localhost:8000/api/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"link":"https://vimeo.com/1"}' localhost:8000/api/importar)" = 400
+          docker rm -f piano-api-ci

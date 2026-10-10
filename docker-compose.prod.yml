@@ -1,11 +1,12 @@
-# Produção na VPS: um container nginx com o jogo, sem proxy próprio (mesmo arranjo
-# do kindred e do gas-individualizado).
+# Produção na VPS: um container nginx com o jogo (`web`) e o serviço de importação
+# pelo YouTube (`api`, pasta transcriber/), sem proxy próprio (mesmo arranjo do
+# kindred e do gas-individualizado). O nginx do `web` encaminha /api/ para a `api`.
 #
 # Quem termina o HTTPS é o Caddy compartilhado da VPS (`~/caddy`, repo vps-infra),
 # que alcança o container pela rede externa `edge`. Detalhes em docs/deploy-vps.md.
 #
 # Na VPS (é o que o forced command `~/bin/deploy.sh` roda):
-#   IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d --no-deps web
+#   IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d --no-deps web api
 services:
   web:
     container_name: piano-web
@@ -21,6 +22,35 @@ services:
       retries: 6
     networks:
       - edge
+
+  api:
+    container_name: piano-api
+    image: ghcr.io/jpmvale/piano-api:${IMAGE_TAG:-latest}
+    build: ./transcriber
+    expose:
+      - "8000"
+    restart: unless-stopped
+    environment:
+      THREADS: "2"
+      MAX_MINUTOS: "8"
+      MAX_FILA: "5"
+      # Se o YouTube passar a pedir login para o servidor, monte um arquivo de
+      # cookies exportado do navegador e descomente (ver transcriber/README.md):
+      # YTDLP_COOKIES: /cookies/youtube.txt
+    # volumes extras para os cookies: - ~/apps/piano-cookies:/cookies:ro
+    volumes:
+      - piano-dados:/data
+    # A transcrição chega a ~2 GB no pico; o teto protege os outros apps da VPS.
+    mem_limit: 3g
+    # Peso baixo na disputa por CPU: se os outros apps precisarem, eles passam
+    # na frente e a transcrição só fica mais lenta.
+    cpu_shares: 256
+    networks:
+      - edge
+
+volumes:
+  # MIDI já transcritos: reimportar o mesmo vídeo é instantâneo.
+  piano-dados:
 
 networks:
   # Rede do proxy compartilhado, criada fora do compose (`docker network create edge`).

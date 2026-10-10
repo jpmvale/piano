@@ -17,8 +17,39 @@
     <svg viewBox="0 0 24 24"><path d="M12 4l5 5h-3v6h-4V9H7zM5 18h14v2H5z"/></svg>Abrir MIDI
     <input type="file" id="midiFile" accept=".mid,.midi,audio/midi" hidden>
   </label>
+  <button class="btn ghost" id="openYoutube" title="Transcrever a música de um vídeo de piano do YouTube">
+    <svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4a2.5 2.5 0 0 0-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8a2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8c.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3z"/></svg>Importar do YouTube
+  </button>
   <div class="meta" id="meta"></div>
 </header>
+
+<dialog id="ytDialog" aria-labelledby="ytTitle">
+  <form id="ytForm">
+    <h2 id="ytTitle">Importar do YouTube</h2>
+    <div class="warn" role="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z"/></svg>
+      <div>
+        <strong>O vídeo precisa ter só o som do piano.</strong>
+        Voz, bateria, violão, outros instrumentos, narração ou ruído viram notas erradas.
+        Tutoriais de piano e gravações de piano solo funcionam melhor.
+      </div>
+    </div>
+    <label for="ytLink">Link do vídeo</label>
+    <input id="ytLink" type="text" inputmode="url" required autocomplete="off" spellcheck="false"
+      placeholder="https://www.youtube.com/watch?v=…">
+    <p class="fine">A transcrição leva cerca de duas vezes a duração da música (até 8 minutos por vídeo).
+      Você pode fechar esta janela e continuar tocando: a música entra na lista quando ficar pronta.</p>
+    <div class="yt-progress" id="ytProgress" hidden aria-live="polite">
+      <div class="yt-state"><b id="ytState"></b> <span id="ytDetail"></span></div>
+      <div class="yt-rail"><div class="yt-fill" id="ytBar"></div></div>
+    </div>
+    <p class="yt-error" id="ytError" role="alert" hidden></p>
+    <div class="actions">
+      <button type="button" class="btn ghost" id="ytCancel">Fechar</button>
+      <button type="submit" class="btn primary" id="ytSubmit">Transcrever</button>
+    </div>
+  </form>
+</dialog>
 
 <div id="stage"><canvas id="cv" aria-label="Notas caindo sobre o teclado. Arraste para cima ou para baixo para mover a música; clique nas teclas para tocar."></canvas></div>
 
