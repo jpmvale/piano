@@ -40,6 +40,12 @@ services:
       # que exportou os cookies (ver transcriber/README.md). Sem o arquivo, segue
       # sem cookies.
       YTDLP_COOKIES: /cookies/youtube.txt
+    # Configuração que não vai para o repositório: MAC_TOKEN (liga a transcrição
+    # no Mac, ver transcriber/mac/README.md) e MODO_TRANSCRICAO. Opcional: sem
+    # o arquivo, a própria VPS transcreve, como antes.
+    env_file:
+      - path: ${HOME}/apps/piano-api.env
+        required: false
     volumes:
       - piano-dados:/data
       # Fora do repositório (~/apps/piano é um checkout) e só leitura: o

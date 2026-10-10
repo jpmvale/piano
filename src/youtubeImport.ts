@@ -15,6 +15,7 @@ interface Status {
   decorrido?: number;
   estimativa?: number;
   erro?: string;
+  onde?: 'vps' | 'mac';
 }
 
 const SAVED_KEY = 'pc-youtube';
@@ -101,6 +102,9 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
       text = `${s.titulo} · ${left > 0 ? `faltam cerca de ${fmtMin(left)}` : 'quase lá'}`;
     } else if (s.estado === 'pronto') {
       pct = 100;
+    }
+    if (s.onde === 'mac' && (s.estado === 'baixando' || s.estado === 'transcrevendo')) {
+      state.textContent = ESTADOS[s.estado].replace('…', ' no seu Mac…');
     }
     detail.textContent = text;
     bar.style.width = pct + '%';

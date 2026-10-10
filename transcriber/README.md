@@ -11,10 +11,15 @@ encaminha `/api/` para cá.
 
 Os MIDI prontos ficam no volume `/data/midi`, então importar o mesmo vídeo de novo é instantâneo.
 
+## Transcrever no Mac
+
+Com o Mac do dono ligado, a fila vai para ele (`app/mac.py`) e a VPS fica de reserva. Como ligar em
+[mac/README.md](mac/README.md).
+
 ## Números (medidos com 2 núcleos)
 
 - Cerca de **2x a duração da música**: 40 s de áudio levam ~95 s. Uma música de 3 minutos, ~6 minutos.
-- Pico de **~2 GB de memória** durante a transcrição, devolvida ao fim (cada música roda num processo separado).
+- Pico de **~2 GB de memória** durante a transcrição (2,4 GB numa música de 15 minutos), devolvida ao fim (cada música roda num processo separado).
 - Limite de 15 minutos por música e 5 vídeos na fila (`MAX_MINUTOS`, `MAX_FILA`).
 
 ## Rodar na sua máquina
