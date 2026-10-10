@@ -1,10 +1,10 @@
 import { songFromMidi } from './midiImport';
 import type { Song } from './songs';
 
-// Importação pelo YouTube: manda o link para o serviço da VPS (pasta transcriber/),
-// acompanha a fila e, quando o MIDI fica pronto, abre com o mesmo importador dos
-// arquivos .mid. A janela pode ser fechada no meio: a música entra na lista
-// quando terminar.
+// Importação pelo YouTube: manda o link (ou um arquivo de áudio, quando o YouTube
+// barra o servidor) para o serviço da VPS (pasta transcriber/), acompanha a fila
+// e, quando o MIDI fica pronto, abre com o mesmo importador dos arquivos .mid.
+// A janela pode ser fechada no meio: a música entra na lista quando terminar.
 
 interface Status {
   id: string;
@@ -69,6 +69,8 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
   const dialog = $<HTMLDialogElement>('ytDialog');
   const form = $<HTMLFormElement>('ytForm');
   const input = $<HTMLInputElement>('ytLink');
+  const fileInput = $<HTMLInputElement>('ytFile');
+  const fileBtn = $<HTMLLabelElement>('ytFileBtn');
   const submit = $<HTMLButtonElement>('ytSubmit');
   const progress = $('ytProgress');
   const state = $('ytState');
@@ -104,27 +106,27 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
     bar.style.width = pct + '%';
   }
 
+  function setBusy(on: boolean) {
+    busy = on;
+    submit.disabled = on;
+    fileInput.disabled = on;
+    fileBtn.classList.toggle('disabled', on);
+  }
+
   function fail(msg: string) {
-    busy = false;
-    submit.disabled = false;
+    setBusy(false);
     progress.hidden = true;
     error.textContent = msg;
     error.hidden = false;
   }
 
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
+  async function run(start: () => Promise<Status>) {
     if (busy) return;
-    busy = true;
-    submit.disabled = true;
+    setBusy(true);
     error.hidden = true;
     show({ id: '', estado: 'na_fila', titulo: '', duracao: 0, posicao: 1 });
     try {
-      let s = await api<Status>('/api/importar', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ link: input.value }),
-      });
+      let s = await start();
       while (s.estado !== 'pronto' && s.estado !== 'erro') {
         show(s);
         await new Promise(r => setTimeout(r, 2000));
@@ -136,14 +138,35 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
       remember(s.id, song.title);
       // Se a pessoa fechou a janela e foi tocar outra coisa, só acrescenta à lista.
       addSong(song, dialog.open);
-      busy = false;
-      submit.disabled = false;
+      setBusy(false);
       progress.hidden = true;
       input.value = '';
       dialog.close();
     } catch (err) {
       fail((err as Error).message);
     }
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    void run(() => api<Status>('/api/importar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ link: input.value }),
+    }));
+  });
+
+  fileBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = '';
+    if (!file) return;
+    if (file.size > 40 * 1024 * 1024) return fail('O arquivo passa de 40 MB.');
+    const body = new FormData();
+    body.append('arquivo', file);
+    void run(() => api<Status>('/api/enviar', { method: 'POST', body }));
   });
 
   // Músicas importadas antes voltam para a lista (o MIDI fica guardado no servidor).

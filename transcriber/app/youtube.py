@@ -1,6 +1,9 @@
 """Lê o link do YouTube, confere a duração e baixa só o áudio, com o yt-dlp."""
+import contextlib
 import os
 import re
+import shutil
+import tempfile
 
 import yt_dlp
 
@@ -29,18 +32,34 @@ def id_do_video(link: str) -> str | None:
     return None
 
 
-def _opcoes(extra: dict) -> dict:
+@contextlib.contextmanager
+def _opcoes(extra: dict):
     opcoes = {'quiet': True, 'no_warnings': True, 'noplaylist': True, 'noprogress': True}
-    # O YouTube às vezes pede login para IPs de datacenter ("confirme que você
-    # não é um robô"). Um arquivo de cookies exportado do navegador resolve.
+    # O YouTube pede login para downloads vindos de IPs de datacenter ("confirme
+    # que você não é um robô"). Um arquivo de cookies exportado do navegador
+    # resolve. O yt-dlp regrava o arquivo ao terminar, então ele trabalha numa
+    # cópia: o original pode ficar montado só para leitura.
     cookies = os.environ.get('YTDLP_COOKIES')
-    if cookies and os.path.exists(cookies):
-        opcoes['cookiefile'] = cookies
-    return {**opcoes, **extra}
+    copia = None
+    if cookies and os.path.isfile(cookies):
+        fd, copia = tempfile.mkstemp(suffix='.txt')
+        with os.fdopen(fd, 'wb') as dst, open(cookies, 'rb') as src:
+            shutil.copyfileobj(src, dst)
+        opcoes['cookiefile'] = copia
+    try:
+        yield {**opcoes, **extra}
+    finally:
+        if copia:
+            os.unlink(copia)
+
+
+def tem_cookies() -> bool:
+    cookies = os.environ.get('YTDLP_COOKIES')
+    return bool(cookies and os.path.isfile(cookies))
 
 
 def informacoes(video_id: str) -> dict:
-    with yt_dlp.YoutubeDL(_opcoes({'skip_download': True})) as ydl:
+    with _opcoes({'skip_download': True}) as opcoes, yt_dlp.YoutubeDL(opcoes) as ydl:
         info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=False)
     return {'titulo': info.get('title') or video_id, 'duracao': float(info.get('duration') or 0),
             'ao_vivo': bool(info.get('is_live'))}
@@ -49,6 +68,6 @@ def informacoes(video_id: str) -> dict:
 def baixar_audio(video_id: str, pasta: str) -> str:
     """Baixa o melhor áudio disponível e devolve o caminho do arquivo."""
     modelo = os.path.join(pasta, f'{video_id}.%(ext)s')
-    with yt_dlp.YoutubeDL(_opcoes({'format': 'bestaudio/best', 'outtmpl': modelo})) as ydl:
+    with _opcoes({'format': 'bestaudio/best', 'outtmpl': modelo}) as opcoes, yt_dlp.YoutubeDL(opcoes) as ydl:
         info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
         return ydl.prepare_filename(info)

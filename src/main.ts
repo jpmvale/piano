@@ -45,7 +45,7 @@ function loadSong(i: number) {
   renderTicks();
   const parts = s.bpm
     ? [s.key, `${s.beatsPerBar}/4`, `${s.bpm} BPM`, `${s.bars.length} compassos`].filter(Boolean)
-    : ['Transcrita do YouTube'];
+    : ['Música transcrita do áudio'];
   $('meta').textContent = parts.join(' · ');
   refreshLoop();
   setPlayIcon();

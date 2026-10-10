@@ -34,12 +34,17 @@ services:
       THREADS: "2"
       MAX_MINUTOS: "8"
       MAX_FILA: "5"
-      # Se o YouTube passar a pedir login para o servidor, monte um arquivo de
-      # cookies exportado do navegador e descomente (ver transcriber/README.md):
-      # YTDLP_COOKIES: /cookies/youtube.txt
-    # volumes extras para os cookies: - ~/apps/piano-cookies:/cookies:ro
+      MAX_MB_ENVIO: "40"
+      # O YouTube pede login para downloads vindos da VPS. Com o arquivo de
+      # cookies em ~/apps/piano-cookies/youtube.txt, o yt-dlp entra como a conta
+      # que exportou os cookies (ver transcriber/README.md). Sem o arquivo, segue
+      # sem cookies.
+      YTDLP_COOKIES: /cookies/youtube.txt
     volumes:
       - piano-dados:/data
+      # Fora do repositório (~/apps/piano é um checkout) e só leitura: o
+      # yt-dlp trabalha numa cópia.
+      - ${HOME}/apps/piano-cookies:/cookies:ro
     # A transcrição chega a ~2 GB no pico; o teto protege os outros apps da VPS.
     mem_limit: 3g
     # Peso baixo na disputa por CPU: se os outros apps precisarem, eles passam

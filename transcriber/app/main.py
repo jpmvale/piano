@@ -1,12 +1,16 @@
-"""API de importação: link do YouTube → áudio → MIDI que o jogo já sabe abrir.
+"""API de importação: link do YouTube ou arquivo de áudio → MIDI que o jogo já sabe abrir.
 
 Uma música por vez, numa fila: a transcrição ocupa os dois núcleos da VPS por
 alguns minutos e duas em paralelo só deixariam as duas mais lentas, além de
 disputar memória com os outros apps da máquina.
 
 Os MIDI prontos ficam em disco (DADOS/midi), indexados pelo id do vídeo:
-importar de novo o mesmo vídeo devolve o resultado na hora.
+importar de novo o mesmo vídeo devolve o resultado na hora. Arquivos enviados
+usam como id o começo do sha256 do conteúdo, com o mesmo formato de um id do
+YouTube, para dividir a mesma fila, o mesmo cache e as mesmas rotas.
 """
+import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -17,7 +21,7 @@ import tempfile
 import threading
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from yt_dlp.utils import DownloadError
@@ -26,6 +30,8 @@ from . import youtube
 
 DADOS = os.environ.get('DADOS', '/data')
 PASTA_MIDI = os.path.join(DADOS, 'midi')
+PASTA_ENVIOS = os.path.join(DADOS, 'envios')
+MAX_MB_ENVIO = int(os.environ.get('MAX_MB_ENVIO', '40'))
 MAX_MINUTOS = float(os.environ.get('MAX_MINUTOS', '8'))
 MAX_FILA = int(os.environ.get('MAX_FILA', '5'))
 # Medido: o Transkun leva perto de 2x a duração da música em 2 núcleos.
@@ -34,6 +40,7 @@ FATOR_TEMPO = float(os.environ.get('FATOR_TEMPO', '2.2'))
 log = logging.getLogger('piano-api')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 os.makedirs(PASTA_MIDI, exist_ok=True)
+os.makedirs(PASTA_ENVIOS, exist_ok=True)
 
 app = FastAPI(title='Piano Cascata: importação', docs_url=None, redoc_url=None)
 
@@ -43,8 +50,9 @@ class Pedido(BaseModel):
 
 
 class Trabalho:
-    def __init__(self, video_id: str):
+    def __init__(self, video_id: str, arquivo: str = ''):
         self.id = video_id
+        self.arquivo = arquivo    # áudio enviado pela pessoa; vazio = baixar do YouTube
         self.estado = 'na_fila'   # na_fila | baixando | transcrevendo | pronto | erro
         self.titulo = ''
         self.duracao = 0.0
@@ -94,23 +102,40 @@ class ErroParaPessoa(Exception):
     """Erro com mensagem pronta para mostrar na tela."""
 
 
-def _processar(t: Trabalho) -> None:
-    t.estado = 'baixando'
+def _duracao(arquivo: str) -> float:
+    r = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', arquivo],
+                       capture_output=True, text=True)
     try:
-        info = youtube.informacoes(t.id)
-    except DownloadError as e:
-        raise ErroParaPessoa(_explicar_download(e)) from e
-    t.titulo, t.duracao = info['titulo'], info['duracao']
-    if info['ao_vivo']:
-        raise ErroParaPessoa('Transmissões ao vivo não podem ser importadas.')
-    if t.duracao > MAX_MINUTOS * 60:
-        raise ErroParaPessoa(f'O vídeo tem {t.duracao / 60:.0f} minutos. O limite é {MAX_MINUTOS:.0f} minutos por música.')
+        return float(r.stdout.strip())
+    except ValueError:
+        raise ErroParaPessoa('Esse arquivo não parece ser de áudio.') from None
 
+
+def _limite(duracao: float, o_que: str) -> None:
+    if duracao > MAX_MINUTOS * 60:
+        raise ErroParaPessoa(f'{o_que} tem {duracao / 60:.0f} minutos. O limite é {MAX_MINUTOS:.0f} minutos por música.')
+
+
+def _processar(t: Trabalho) -> None:
     with tempfile.TemporaryDirectory(dir=DADOS) as tmp:
-        try:
-            audio = youtube.baixar_audio(t.id, tmp)
-        except DownloadError as e:
-            raise ErroParaPessoa(_explicar_download(e)) from e
+        if t.arquivo:
+            audio = t.arquivo
+            t.duracao = _duracao(audio)
+            _limite(t.duracao, 'O áudio')
+        else:
+            t.estado = 'baixando'
+            try:
+                info = youtube.informacoes(t.id)
+            except DownloadError as e:
+                raise ErroParaPessoa(_explicar_download(e)) from e
+            t.titulo, t.duracao = info['titulo'], info['duracao']
+            if info['ao_vivo']:
+                raise ErroParaPessoa('Transmissões ao vivo não podem ser importadas.')
+            _limite(t.duracao, 'O vídeo')
+            try:
+                audio = youtube.baixar_audio(t.id, tmp)
+            except DownloadError as e:
+                raise ErroParaPessoa(_explicar_download(e)) from e
 
         t.estado, t.inicio_transcricao = 'transcrevendo', time.time()
         saida = os.path.join(tmp, 'saida.mid')
@@ -139,7 +164,8 @@ def _explicar_download(e: DownloadError) -> str:
     msg = str(e)
     log.warning('yt-dlp: %s', msg)
     if 'Sign in' in msg or 'bot' in msg:
-        return 'O YouTube bloqueou o download a partir do servidor. Tente de novo mais tarde.'
+        return ('O YouTube bloqueou o download a partir do servidor. '
+                'Enquanto isso, você pode enviar o arquivo de áudio da música.')
     if 'Private video' in msg or 'unavailable' in msg.lower():
         return 'Esse vídeo é privado ou não está disponível.'
     return 'Não consegui baixar o áudio desse vídeo.'
@@ -158,6 +184,9 @@ def _trabalhador() -> None:
             log.exception('falha inesperada em %s', video_id)
             t.estado, t.erro = 'erro', 'Algo deu errado na importação. Tente de novo.'
         finally:
+            if t.arquivo:
+                with contextlib.suppress(OSError):
+                    os.unlink(t.arquivo)
             t.atualizado = time.time()
             fila.task_done()
 
@@ -167,7 +196,7 @@ threading.Thread(target=_trabalhador, daemon=True).start()
 
 @app.get('/api/health')
 def saude() -> dict:
-    return {'ok': True, 'fila': fila.qsize()}
+    return {'ok': True, 'fila': fila.qsize(), 'cookies': youtube.tem_cookies()}
 
 
 @app.post('/api/importar')
@@ -188,6 +217,46 @@ def importar(p: Pedido) -> dict:
         t = Trabalho(video_id)
         trabalhos[video_id] = t
         fila.put(video_id)
+        return t.json()
+
+
+@app.post('/api/enviar')
+def enviar(arquivo: UploadFile = File(...)) -> dict:
+    """Recebe um arquivo de áudio (mp3, m4a, wav…) e põe na mesma fila do YouTube."""
+    limite = MAX_MB_ENVIO * 1024 * 1024
+    fd, caminho = tempfile.mkstemp(dir=PASTA_ENVIOS)
+    soma, tamanho = hashlib.sha256(), 0
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            while bloco := arquivo.file.read(1 << 20):
+                tamanho += len(bloco)
+                if tamanho > limite:
+                    raise HTTPException(413, f'O arquivo passa de {MAX_MB_ENVIO} MB.')
+                soma.update(bloco)
+                f.write(bloco)
+        if tamanho == 0:
+            raise HTTPException(400, 'O arquivo está vazio.')
+    except BaseException:
+        os.unlink(caminho)
+        raise
+
+    trabalho_id = soma.hexdigest()[:11]
+    titulo = os.path.splitext(os.path.basename(arquivo.filename or ''))[0].strip()[:120] or 'Áudio enviado'
+    with trava:
+        t = trabalhos.get(trabalho_id)
+        pronto = None if t and t.estado != 'erro' else _pronto_em_disco(trabalho_id)
+        if (t and t.estado != 'erro') or pronto:
+            os.unlink(caminho)
+            if pronto:
+                trabalhos[trabalho_id] = pronto
+            return (pronto or t).json()
+        if fila.qsize() >= MAX_FILA:
+            os.unlink(caminho)
+            raise HTTPException(429, 'Muitas músicas na fila agora. Tente de novo em alguns minutos.')
+        t = Trabalho(trabalho_id, arquivo=caminho)
+        t.titulo = titulo
+        trabalhos[trabalho_id] = t
+        fila.put(trabalho_id)
         return t.json()
 
 
