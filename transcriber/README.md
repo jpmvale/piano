@@ -11,6 +11,29 @@ encaminha `/api/` para cá.
 
 Os MIDI prontos ficam no volume `/data/midi`, então importar o mesmo vídeo de novo é instantâneo.
 
+## Contas e músicas
+
+O jogo pede login (mesmo desenho do Property Scout: senha com argon2id, sessão opaca em cookie
+httpOnly com só o hash no banco, validade de 30 dias renovada a cada uso, freio de tentativas
+por e-mail e por IP). Contas e músicas ficam em `/data/piano.db` (SQLite), no mesmo volume.
+
+| Variável | Para quê |
+| --- | --- |
+| `CODIGO_CONVITE` | O código que libera o cadastro. Sem ele, ninguém cria conta. Trocar o código não derruba quem já entrou. |
+| `ADMIN_EMAIL` | E-mails de administrador, separados por vírgula. Vale para contas novas e para as que já existem (a cada início da api). |
+
+Rotas: `POST /api/auth/cadastro`, `POST /api/auth/entrar`, `POST /api/auth/sair`, `GET /api/auth/eu`;
+`GET /api/musicas`, `GET /api/musicas/<id>/midi`, `POST /api/musicas/midi`, `PATCH /api/musicas/<id>`
+(só admin renomeia), `DELETE /api/musicas/<id>` (admin, ou quem enviou a música). Toda rota fora
+`/api/health`, `/api/auth/*` e `/api/mac/*` (que usa o `MAC_TOKEN`) exige login.
+
+Cada música tem dono (quem enviou) ou é da casa (sem dono, só o admin mexe). Uma importação de
+áudio vira música de quem pediu quando fica pronta. Na primeira vez que a api sobe com o banco
+novo, as músicas da casa e as transcrições que já estavam no volume entram sem dono.
+
+A dificuldade (0 a 10) sai das notas por minuto, contando as duas mãos: um ponto a cada 40 notas
+por minuto, com teto 10 (`app/musicas.py`).
+
 ## Transcrever no Mac
 
 Com o Mac do dono ligado, a fila vai para ele (`app/mac.py`) e a VPS fica de reserva. Como ligar em
@@ -29,11 +52,11 @@ cd transcriber
 python3 -m venv .venv && . .venv/bin/activate
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-DADOS=./dados uvicorn app.main:app --port 8000
+DADOS=./dados CODIGO_CONVITE=teste ADMIN_EMAIL=voce@exemplo.com uvicorn app.main:app --port 8000
 # em outro terminal, na raiz do repositório: npm run dev (o Vite encaminha /api para a porta 8000)
 ```
 
-Testes: `python -m unittest` (links aceitos e recusados). Transcrição de um trecho:
+Testes: `python -m unittest` (links, fila do Mac, contas e permissões das músicas). Transcrição de um trecho:
 `python -m app.transcrever tests/trecho.mp3 /tmp/trecho.mid`.
 
 ## Envio de arquivo de áudio
