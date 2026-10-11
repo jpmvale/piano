@@ -150,6 +150,7 @@ def _json(linha: sqlite3.Row, u: Usuario) -> dict:
         'origem': linha['origem'],
         'dono': {'id': linha['dono_id'], 'nome': linha['dono_nome']} if linha['dono_id'] is not None else None,
         'minha': minha,
+        'criada_em': round(linha['criada_em'], 3),
         'notas': linha['notas'],
         'duracao': round(linha['duracao'], 1),
         'notas_por_minuto': round(notas_por_minuto(linha['notas'], linha['duracao'])),

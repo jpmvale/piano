@@ -61,16 +61,29 @@
 
 <dialog id="libDialog" class="lib" aria-labelledby="libTitle">
   <div class="lib-head">
-    <h2 id="libTitle">Escolha uma música</h2>
+    <h2 id="libTitle">Músicas <span id="libTotal"></span></h2>
     <button class="btn ghost" id="libFechar" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg></button>
   </div>
   <div class="lib-tools">
-    <input id="libBusca" type="search" placeholder="Buscar pelo nome" aria-label="Buscar pelo nome">
-    <select id="libOrdem" aria-label="Ordem">
-      <option value="facil">Mais fáceis primeiro</option>
-      <option value="dificil">Mais difíceis primeiro</option>
-      <option value="nome">Nome</option>
-      <option value="recentes">Mais recentes</option>
+    <input id="libBusca" type="search" placeholder="Buscar por nome ou por quem enviou" aria-label="Buscar">
+    <select id="libOrdem" aria-label="Ordenar por">
+      <option value="criada:desc">Mais recentes</option>
+      <option value="criada:asc">Mais antigas</option>
+      <option value="dificuldade:asc">Mais fáceis</option>
+      <option value="dificuldade:desc">Mais difíceis</option>
+      <option value="duracao:asc">Mais curtas</option>
+      <option value="duracao:desc">Mais longas</option>
+      <option value="npm:asc">Menos notas por minuto</option>
+      <option value="npm:desc">Mais notas por minuto</option>
+      <option value="titulo:asc">Nome (A–Z)</option>
+      <option value="titulo:desc">Nome (Z–A)</option>
+      <option value="dono:asc">Quem enviou</option>
+    </select>
+    <select id="libNivel" aria-label="Dificuldade">
+      <option value="">Qualquer dificuldade</option>
+      <option value="0-3">Fáceis (0 a 3)</option>
+      <option value="4-6">Médias (4 a 6)</option>
+      <option value="7-10">Difíceis (7 a 10)</option>
     </select>
     <div class="seg" id="libFiltro" role="group" aria-label="Quais músicas">
       <button data-filtro="todas" aria-pressed="true">Todas</button>
@@ -79,7 +92,17 @@
     </div>
   </div>
   <p class="imp-error" id="libErro" role="alert" hidden></p>
+  <div class="lib-cab" id="libCab" role="presentation">
+    <button data-campo="dificuldade">Dificuldade</button>
+    <button data-campo="titulo">Nome</button>
+    <button data-campo="dono">Enviada por</button>
+    <button data-campo="duracao">Duração</button>
+    <button data-campo="npm">Notas/min</button>
+    <button data-campo="criada">Adicionada</button>
+    <span></span>
+  </div>
   <ul id="libLista"></ul>
+  <button class="btn" id="libMais" hidden></button>
   <p class="lib-vazio" id="libVazio" hidden></p>
   <p class="fine lib-nota">Dificuldade de 0 a 10 pelas notas por minuto, contando as duas mãos: um ponto a cada 40 notas por minuto (400 ou mais é 10).</p>
 </dialog>
