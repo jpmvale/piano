@@ -1,9 +1,35 @@
-// Som do piano: amostras reais embutidas na página (uma a cada terça menor,
-// afinadas no navegador). Enquanto carregam, usa um timbre sintetizado.
+// Som: amostras reais afinadas no navegador. O piano vem embutido na página (uma
+// amostra a cada terça menor); os outros timbres ficam em public/timbres/<id>/ e só
+// são baixados quando escolhidos (scripts/make-timbres.sh). Enquanto um timbre
+// carrega, segue tocando o anterior; sem amostra nenhuma, usa um som sintetizado.
 
 const sampleUrls = import.meta.glob('./samples/*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
-const PC: Record<string, number> = { C: 0, Ds: 3, Fs: 6, A: 9 };
+const PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+/** "Ds4" → 63, "A2" → 45 */
+function noteNumber(name: string): number | null {
+  const m = /^([A-G])(s?)(\d)$/.exec(name);
+  return m ? PC[m[1]] + (m[2] ? 1 : 0) + (Number(m[3]) + 1) * 12 : null;
+}
+
+export interface Timbre {
+  id: string;
+  name: string;
+  release: number;  // segundos do fim do som depois de soltar a tecla
+}
+
+export const TIMBRES: Timbre[] = [
+  { id: 'piano', name: 'Piano', release: 0.12 },
+  { id: 'violao', name: 'Violão', release: 0.15 },
+  { id: 'guitarra', name: 'Guitarra', release: 0.12 },
+  { id: 'harpa', name: 'Harpa', release: 0.2 },
+  { id: 'xilofone', name: 'Xilofone', release: 0.15 },
+  { id: 'orgao', name: 'Órgão', release: 0.05 },
+  { id: 'violino', name: 'Violino', release: 0.08 },
+  { id: 'violoncelo', name: 'Violoncelo', release: 0.08 },
+  { id: 'flauta', name: 'Flauta', release: 0.06 },
+  { id: 'eletronico', name: 'Teclado eletrônico', release: 0.12 },
+];
 
 // A página publicada não pode fazer fetch de data: URLs, então decodifica direto.
 function dataUrlToBuffer(url: string): ArrayBuffer {
@@ -21,7 +47,10 @@ export class Piano {
   private ac: AudioContext | null = null;
   private out!: GainNode;
   private buffers = new Map<number, AudioBuffer>();
+  private banks = new Map<string, Promise<Map<number, AudioBuffer>>>();
   private live = new Set<{ gain: GainNode; stop: (at: number) => void }>();
+  private timbre = TIMBRES[0];
+  private wanted = TIMBRES[0];
   loaded = false;
 
   /** Precisa ser chamado a partir de um clique ou tecla (regra dos navegadores). */
@@ -34,26 +63,69 @@ export class Piano {
       this.out = this.ac.createGain();
       this.out.gain.value = 0.8;
       this.out.connect(comp).connect(this.ac.destination);
-      void this.loadSamples();
+      void this.setTimbre(this.wanted.id);
     }
     if (this.ac.state === 'suspended') void this.ac.resume();
   }
 
-  private async loadSamples() {
+  get timbreId() { return this.wanted.id; }
+
+  /**
+   * Troca o timbre. Antes do primeiro clique (sem AudioContext) só guarda a escolha.
+   * Resolve com false se as amostras não vieram (o timbre anterior continua).
+   */
+  async setTimbre(id: string): Promise<boolean> {
+    const t = TIMBRES.find(x => x.id === id) ?? TIMBRES[0];
+    this.wanted = t;
+    if (!this.ac) return true;
+    if (t.id === 'eletronico') {
+      this.timbre = t;
+      this.buffers = new Map();
+      document.documentElement.dataset.sound = t.id;
+      return true;
+    }
+    let bank = this.banks.get(t.id);
+    if (!bank) {
+      bank = this.loadBank(t.id);
+      this.banks.set(t.id, bank);
+    }
+    const buffers = await bank;
+    if (this.wanted !== t) return true; // a pessoa já escolheu outro enquanto carregava
+    if (buffers.size === 0) {
+      this.banks.delete(t.id); // tenta de novo numa próxima escolha
+      return false;
+    }
+    this.timbre = t;
+    this.buffers = buffers;
+    this.loaded = true;
+    document.documentElement.dataset.sound = t.id;
+    return true;
+  }
+
+  private async loadBank(id: string): Promise<Map<number, AudioBuffer>> {
     const ac = this.ac!;
-    await Promise.all(Object.entries(sampleUrls).map(async ([path, url]) => {
-      const m = /([A-Za-z]+)(\d)\.mp3$/.exec(path);
-      if (!m) return;
-      const midi = PC[m[1]] + (Number(m[2]) + 1) * 12;
+    const bank = new Map<number, AudioBuffer>();
+    let files: [number | null, string][];
+    if (id === 'piano') {
+      files = Object.entries(sampleUrls).map(([path, url]) => [noteNumber(/([A-Za-z]+\d)\.mp3$/.exec(path)?.[1] ?? ''), url]);
+    } else {
+      try {
+        const names = await (await fetch(`/timbres/${id}/notas.json`)).json() as string[];
+        files = names.map(n => [noteNumber(n), `/timbres/${id}/${n}.mp3`]);
+      } catch {
+        return bank;
+      }
+    }
+    await Promise.all(files.map(async ([midi, url]) => {
+      if (midi == null) return;
       try {
         const data = url.startsWith('data:') ? dataUrlToBuffer(url) : await (await fetch(url)).arrayBuffer();
-        this.buffers.set(midi, await ac.decodeAudioData(data));
+        bank.set(midi, await ac.decodeAudioData(data));
       } catch {
         /* sem essa amostra, a vizinha cobre */
       }
     }));
-    this.loaded = this.buffers.size > 0;
-    document.documentElement.dataset.sound = this.loaded ? 'piano' : 'synth';
+    return bank;
   }
 
   /** Toca uma nota. Com `seconds` finito ela é solta sozinha; sem isso, chame release(). */
@@ -64,6 +136,7 @@ export class Piano {
     const gain = ac.createGain();
     gain.connect(this.out);
     let stop: (at: number) => void;
+    const rel = this.timbre.release;
 
     const nearest = this.nearestSample(midi);
     if (nearest) {
@@ -84,13 +157,13 @@ export class Piano {
       if (!this.live.has(voice)) return;
       gain.gain.cancelScheduledValues(at);
       gain.gain.setValueAtTime(gain.gain.value, at);
-      gain.gain.setTargetAtTime(0, at, 0.12);
+      gain.gain.setTargetAtTime(0, at, rel);
       stop(at + 0.8);
       setTimeout(() => this.live.delete(voice), (at - ac.currentTime + 0.9) * 1000);
     };
     if (isFinite(seconds)) {
       const at = now + Math.max(0.08, seconds);
-      gain.gain.setTargetAtTime(0, at, 0.12);
+      gain.gain.setTargetAtTime(0, at, rel);
       stop(at + 0.8);
       setTimeout(() => this.live.delete(voice), (at - now + 0.9) * 1000);
     }

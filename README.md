@@ -24,7 +24,7 @@ npm run build    # gera dist/index.html (arquivo único) e dist/artifact.html (f
 - `src/songs.ts`: músicas fixas (escritas como texto `NOTA:tempos`) e o formato interno `{midi, time, duration, hand}`, compatível com @tonejs/midi.
 - `src/player.ts`: relógio único da música (play, pause, parar, compassos, velocidade, trecho A–B, modo espera, pontuação).
 - `src/renderer.ts`: desenho em Canvas 2D (pista, notas, teclado, brilhos).
-- `src/audio.ts`: piano com amostras reais embutidas (`src/samples`), com timbre sintetizado de reserva.
+- `src/audio.ts`: piano com amostras reais embutidas (`src/samples`), os outros timbres sob demanda e um som sintetizado de reserva.
 - `src/input.ts`: teclado do computador e Web MIDI.
 - `src/midiImport.ts`: abrir arquivos `.mid` e separar as mãos quando o arquivo tem uma faixa só.
 - `src/audioImport.ts`: janela "Importar áudio" (aviso de piano solo e músicas simples, fila, progresso).
@@ -32,5 +32,6 @@ npm run build    # gera dist/index.html (arquivo único) e dist/artifact.html (f
 - `src/library.ts`: tela de escolha de músicas (dificuldade 0 a 10, busca, renomear e apagar conforme a permissão).
 - `transcriber/`: o servidor: contas, músicas e a importação (yt-dlp + Transkun). Ver [transcriber/README.md](transcriber/README.md).
 - `scripts/make-samples.sh`: regenera as amostras a partir do pacote `tonejs-instrument-piano-mp3`.
+- `scripts/make-timbres.sh`: gera os outros timbres (violão, órgão, violino…) em `public/timbres/`, baixados só quando escolhidos no seletor "Timbre".
 
 Amostras de piano: tonejs-instruments, de Nicholaus Brosowsky (CC BY 3.0).
