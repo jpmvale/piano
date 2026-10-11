@@ -5,7 +5,7 @@ import { songFromMidiFile } from './midiImport';
 import { LEAD, Player, type Mode } from './player';
 import { Renderer, NAMES, type NameStyle, type Pressed } from './renderer';
 import { BUILTIN_SONGS, type Song } from './songs';
-import { initYoutubeImport } from './youtubeImport';
+import { initAudioImport } from './audioImport';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -41,7 +41,7 @@ function loadSong(i: number) {
   player.load(s);
   renderer.setRange(s.notes.map(n => n.midi));
   updatePcBase();
-  renderSongButtons();
+  renderSongList();
   renderTicks();
   const parts = s.bpm
     ? [s.key, `${s.beatsPerBar}/4`, `${s.bpm} BPM`, `${s.bars.length} compassos`].filter(Boolean)
@@ -50,18 +50,15 @@ function loadSong(i: number) {
   refreshLoop();
   setPlayIcon();
 }
-function renderSongButtons() {
-  const box = $('songs');
-  box.innerHTML = '';
-  songs.forEach((s, i) => {
-    const b = document.createElement('button');
-    b.className = 'song';
-    b.textContent = s.title;
-    b.setAttribute('aria-pressed', String(i === current));
-    b.onclick = () => loadSong(i);
-    box.appendChild(b);
-  });
+function renderSongList() {
+  const sel = $<HTMLSelectElement>('songSel');
+  sel.innerHTML = '';
+  songs.forEach((s, i) => sel.add(new Option(s.title, String(i), false, i === current)));
 }
+$<HTMLSelectElement>('songSel').onchange = e => {
+  loadSong(Number((e.target as HTMLSelectElement).value));
+  (e.target as HTMLSelectElement).blur(); // devolve o teclado aos atalhos
+};
 $<HTMLInputElement>('midiFile').addEventListener('change', async e => {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -76,10 +73,34 @@ $<HTMLInputElement>('midiFile').addEventListener('change', async e => {
   }
 });
 
-initYoutubeImport((song, open) => {
+const openAudio = initAudioImport((song, open) => {
   songs.push(song);
-  if (open) loadSong(songs.length - 1); else renderSongButtons();
+  if (open) loadSong(songs.length - 1); else renderSongList();
 });
+
+// ---------- Botão + : MIDI ou MP3 ----------
+const addBtn = $('addBtn'), addMenu = $('addMenu');
+function setMenu(open: boolean) {
+  addMenu.hidden = !open;
+  addBtn.setAttribute('aria-expanded', String(open));
+  if (open) addMenu.querySelector<HTMLElement>('.menu-item')?.focus();
+}
+addBtn.onclick = () => setMenu(addMenu.hidden);
+document.addEventListener('pointerdown', e => {
+  if (!addMenu.hidden && !(e.target as HTMLElement).closest('.add')) setMenu(false);
+});
+addMenu.addEventListener('keydown', e => {
+  e.stopPropagation(); // atalhos do jogo não valem dentro do menu
+  const items = [...addMenu.querySelectorAll<HTMLElement>('.menu-item')];
+  const i = items.indexOf(document.activeElement as HTMLElement);
+  if (e.key === 'Escape') { e.preventDefault(); setMenu(false); addBtn.focus(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+  } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (document.activeElement as HTMLElement).click(); }
+});
+$('addMidi').addEventListener('click', () => setMenu(false));
+$('addAudio').onclick = () => { setMenu(false); openAudio(); };
 
 // Teclas do computador começam no Dó mais grave da parte que você toca
 function updatePcBase() {
@@ -89,6 +110,25 @@ function updatePcBase() {
   pcKeyboard.base = Math.floor(low / 12) * 12;
   renderer.pcLabels = $('pcKeys').getAttribute('aria-pressed') === 'true' ? pcKeyboard.labels() : null;
 }
+
+// ---------- Tela cheia: só o palco e o controle de tocar ----------
+function setTheater(on: boolean) {
+  document.body.classList.toggle('theater', on);
+  $('theaterBtn').setAttribute('aria-pressed', String(on));
+  $('theaterBtn').querySelector('span')!.textContent = on ? 'Sair' : 'Tela cheia';
+  $('theaterIcon').innerHTML = on
+    ? '<path d="M8 4h2v6H4V8h4zm6 0h2v4h4v2h-6zM4 14h6v6H8v-4H4zm10 0h6v2h-4v4h-2z"/>'
+    : '<path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/>';
+  const fs = document.fullscreenElement != null;
+  // A tela cheia do navegador é um extra: onde não existe (iPhone), fica só o modo teatro.
+  if (on && !fs) document.documentElement.requestFullscreen?.().catch(() => { /* sem permissão */ });
+  if (!on && fs) void document.exitFullscreen();
+}
+$('theaterBtn').onclick = () => setTheater(!document.body.classList.contains('theater'));
+// Esc do navegador sai da tela cheia: sai do modo teatro junto.
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('theater')) setTheater(false);
+});
 
 // ---------- Transporte ----------
 function setPlayIcon() {
@@ -173,6 +213,7 @@ document.addEventListener('keydown', e => {
     case 'Escape': stop(); break;
     case '[': $('markA').click(); break;
     case ']': $('markB').click(); break;
+    case 'f': case 'F': $('theaterBtn').click(); break;
     case '\\': if (!$<HTMLButtonElement>('loopBtn').disabled) $('loopBtn').click(); break;
   }
 });
