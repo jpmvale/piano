@@ -1,5 +1,5 @@
 import './style.css';
-import { Piano, type Voice } from './audio';
+import { Piano, TIMBRES, type Voice } from './audio';
 import { ComputerKeyboard, connectMidi } from './input';
 import { songFromMidi, songFromMidiFile } from './midiImport';
 import { LEAD, Player, type Mode } from './player';
@@ -295,6 +295,21 @@ $<HTMLSelectElement>('names').onchange = e => {
   renderer.names = (e.target as HTMLSelectElement).value as NameStyle;
   try { localStorage.setItem('pc-names', renderer.names); } catch { /* sem armazenamento */ }
 };
+// ---------- Timbre ----------
+const timbreSel = $<HTMLSelectElement>('timbre');
+for (const t of TIMBRES) timbreSel.add(new Option(t.name, t.id));
+timbreSel.onchange = async () => {
+  const id = timbreSel.value;
+  timbreSel.blur(); // devolve o teclado aos atalhos
+  try { localStorage.setItem('pc-timbre', id); } catch { /* sem armazenamento */ }
+  piano.unlock();
+  $('timbreStatus').textContent = 'Carregando…';
+  const ok = await piano.setTimbre(id);
+  if (piano.timbreId !== id) return; // outra escolha já passou na frente
+  $('timbreStatus').textContent = ok ? '' : 'Não consegui baixar esse timbre. Tente de novo.';
+  if (ok && !player.playing) piano.play(60, 0.6, 0.8); // amostra do som novo
+};
+
 $('midiBtn').onclick = () => {
   piano.unlock();
   $('midiStatus').textContent = 'Procurando teclado…';
@@ -421,6 +436,8 @@ try {
   const n = localStorage.getItem('pc-names');
   if (n && (n in NAMES || n === 'none')) { renderer.names = n as NameStyle; $<HTMLSelectElement>('names').value = n; }
   if (localStorage.getItem('pc-keys') === '1') $('pcKeys').setAttribute('aria-pressed', 'true');
+  const t = localStorage.getItem('pc-timbre');
+  if (t && TIMBRES.some(x => x.id === t)) { timbreSel.value = t; void piano.setTimbre(t); }
 } catch { /* sem armazenamento */ }
 renderer.resize();
 loadSong(BUILTIN_SONGS[0]); // o palco já aparece atrás da tela de entrada

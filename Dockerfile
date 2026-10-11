@@ -10,4 +10,6 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/index.html /usr/share/nginx/html/index.html
+# Timbres além do piano: baixados só quando a pessoa escolhe (public/timbres)
+COPY --from=build /app/dist/timbres /usr/share/nginx/html/timbres
 EXPOSE 8080
