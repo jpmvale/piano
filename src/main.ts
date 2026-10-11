@@ -54,6 +54,20 @@ function renderSongList() {
   const sel = $<HTMLSelectElement>('songSel');
   sel.innerHTML = '';
   songs.forEach((s, i) => sel.add(new Option(s.title, String(i), false, i === current)));
+  const box = $('songsMenu');
+  box.innerHTML = '';
+  songs.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'menu-item';
+    b.setAttribute('role', 'menuitemradio');
+    b.setAttribute('aria-checked', String(i === current));
+    b.tabIndex = -1;
+    b.innerHTML = '<b></b><span></span>';
+    b.querySelector('b')!.textContent = s.title;
+    b.querySelector('span')!.textContent = i < BUILTIN_SONGS.length ? 'música da casa' : 'importada';
+    b.onclick = () => loadSong(i);
+    box.appendChild(b);
+  });
 }
 $<HTMLSelectElement>('songSel').onchange = e => {
   loadSong(Number((e.target as HTMLSelectElement).value));
@@ -78,29 +92,33 @@ const openAudio = initAudioImport((song, open) => {
   if (open) loadSong(songs.length - 1); else renderSongList();
 });
 
-// ---------- Botão + : MIDI ou MP3 ----------
-const addBtn = $('addBtn'), addMenu = $('addMenu');
-function setMenu(open: boolean) {
-  addMenu.hidden = !open;
-  addBtn.setAttribute('aria-expanded', String(open));
-  if (open) addMenu.querySelector<HTMLElement>('.menu-item')?.focus();
+// ---------- Menus do topo: músicas salvas e + (MIDI ou MP3) ----------
+function menu(wrap: HTMLElement) {
+  const btn = wrap.querySelector<HTMLElement>('.btn')!, box = wrap.querySelector<HTMLElement>('.menu')!;
+  const set = (open: boolean) => {
+    box.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) (box.querySelector<HTMLElement>('[aria-checked="true"]') ?? box.querySelector<HTMLElement>('.menu-item'))?.focus();
+  };
+  btn.onclick = () => set(box.hidden);
+  document.addEventListener('pointerdown', e => {
+    if (!box.hidden && !wrap.contains(e.target as Node)) set(false);
+  });
+  box.addEventListener('keydown', e => {
+    e.stopPropagation(); // atalhos do jogo não valem dentro do menu
+    const items = [...box.querySelectorAll<HTMLElement>('.menu-item')];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape') { e.preventDefault(); set(false); btn.focus(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (document.activeElement as HTMLElement).click(); }
+  });
+  box.addEventListener('click', e => { if ((e.target as HTMLElement).closest('.menu-item')) set(false); });
 }
-addBtn.onclick = () => setMenu(addMenu.hidden);
-document.addEventListener('pointerdown', e => {
-  if (!addMenu.hidden && !(e.target as HTMLElement).closest('.add')) setMenu(false);
-});
-addMenu.addEventListener('keydown', e => {
-  e.stopPropagation(); // atalhos do jogo não valem dentro do menu
-  const items = [...addMenu.querySelectorAll<HTMLElement>('.menu-item')];
-  const i = items.indexOf(document.activeElement as HTMLElement);
-  if (e.key === 'Escape') { e.preventDefault(); setMenu(false); addBtn.focus(); }
-  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
-  } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (document.activeElement as HTMLElement).click(); }
-});
-$('addMidi').addEventListener('click', () => setMenu(false));
-$('addAudio').onclick = () => { setMenu(false); openAudio(); };
+menu($('songsWrap'));
+menu($('addWrap'));
+$('addAudio').onclick = () => openAudio();
 
 // Teclas do computador começam no Dó mais grave da parte que você toca
 function updatePcBase() {

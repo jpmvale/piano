@@ -14,7 +14,14 @@
 <header>
   <div class="brand"><h1>Piano <span>Cascata</span></h1></div>
   <div class="meta" id="meta"></div>
-  <div class="add">
+  <div class="add" id="songsWrap">
+    <button class="btn ghost" id="songsBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="songsMenu"
+      title="Escolher uma música salva">
+      <svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-6.8V17a3 3 0 1 1-2-2.8V6h5v3.2z"/></svg>Músicas
+    </button>
+    <div class="menu songs-menu" id="songsMenu" role="menu" hidden></div>
+  </div>
+  <div class="add" id="addWrap">
     <button class="btn icon" id="addBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="addMenu"
       title="Adicionar música" aria-label="Adicionar música">
       <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>

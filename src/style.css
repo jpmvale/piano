@@ -42,6 +42,9 @@ header {
 
 /* Botão + com o menu MIDI / MP3 */
 .add { position: relative; }
+#songsBtn { height: 40px; border-radius: 12px; }
+.songs-menu { max-height: min(60vh, 420px); overflow-y: auto; min-width: 260px; }
+.menu-item[aria-checked="true"] b { color: var(--right); }
 .btn.icon { width: 40px; height: 40px; padding: 0; border-radius: 12px; background: var(--right); color: #10140a; border-color: transparent; }
 .btn.icon svg { width: 22px; height: 22px; }
 .menu {
@@ -135,7 +138,7 @@ kbd {
 }
 @media (max-width: 640px) {
   .meta { display: none; }
-  .add { margin-left: auto; }
+  #songsWrap { margin-left: auto; }
   #theaterBtn span { display: none; }
   .hint, #pcKeys { display: none; }
   .bar { gap: 8px 12px; }
