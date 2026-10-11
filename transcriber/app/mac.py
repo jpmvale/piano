@@ -193,6 +193,14 @@ def main() -> None:
                 cli.erro(tid, str(e))
             except (Perdido, requests.RequestException):
                 pass
+        except requests.HTTPError as e:
+            # Recusa da VPS (4xx): repetir daria o mesmo erro para sempre, então desiste da música.
+            log.warning('%s: a VPS recusou (%s)', tid, e)
+            if e.response is not None and 400 <= e.response.status_code < 500:
+                try:
+                    cli.erro(tid, 'Algo deu errado na importação. Tente de novo.')
+                except (Perdido, requests.RequestException):
+                    pass
         except requests.RequestException as e:
             # A VPS devolve a música para a fila sozinha depois do prazo.
             log.warning('%s: perdi o contato com a VPS no meio (%s)', tid, e)
