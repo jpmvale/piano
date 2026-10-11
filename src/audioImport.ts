@@ -1,10 +1,9 @@
 import { songFromMidi } from './midiImport';
 import type { Song } from './songs';
 
-// Importação pelo YouTube: manda o link (ou um arquivo de áudio, quando o YouTube
-// barra o servidor) para o serviço da VPS (pasta transcriber/), acompanha a fila
-// e, quando o MIDI fica pronto, abre com o mesmo importador dos arquivos .mid.
-// A janela pode ser fechada no meio: a música entra na lista quando terminar.
+// Importação de áudio: manda o arquivo para o serviço da VPS (pasta transcriber/),
+// acompanha a fila e, quando o MIDI fica pronto, abre com o mesmo importador dos
+// arquivos .mid. A janela pode ser fechada no meio: a música entra na lista quando terminar.
 
 interface Status {
   id: string;
@@ -18,7 +17,7 @@ interface Status {
   onde?: 'vps' | 'mac';
 }
 
-const SAVED_KEY = 'pc-youtube';
+const SAVED_KEY = 'pc-youtube'; // nome antigo, mantido para não perder as músicas já importadas
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -59,32 +58,26 @@ function remember(id: string, title: string) {
 
 const ESTADOS: Record<Status['estado'], string> = {
   na_fila: 'Na fila',
-  baixando: 'Baixando o áudio do vídeo…',
+  baixando: 'Preparando o áudio…',
   transcrevendo: 'Transcrevendo as notas…',
   pronto: 'Pronto!',
   erro: 'Não deu certo',
 };
 const fmtMin = (s: number) => s < 90 ? `${Math.max(1, Math.round(s))} s` : `${Math.round(s / 60)} min`;
 
-export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) {
-  const dialog = $<HTMLDialogElement>('ytDialog');
-  const form = $<HTMLFormElement>('ytForm');
-  const input = $<HTMLInputElement>('ytLink');
-  const fileInput = $<HTMLInputElement>('ytFile');
-  const fileBtn = $<HTMLLabelElement>('ytFileBtn');
-  const submit = $<HTMLButtonElement>('ytSubmit');
-  const progress = $('ytProgress');
-  const state = $('ytState');
-  const detail = $('ytDetail');
-  const bar = $('ytBar');
-  const error = $('ytError');
+/** Liga a janela de importação de áudio; devolve a função que a abre. */
+export function initAudioImport(addSong: (song: Song, open: boolean) => void): () => void {
+  const dialog = $<HTMLDialogElement>('audDialog');
+  const fileInput = $<HTMLInputElement>('audFile');
+  const fileBtn = $<HTMLLabelElement>('audFileBtn');
+  const progress = $('audProgress');
+  const state = $('audState');
+  const detail = $('audDetail');
+  const bar = $('audBar');
+  const error = $('audError');
   let busy = false;
 
-  $('openYoutube').onclick = () => {
-    dialog.showModal();
-    if (!busy) { error.hidden = true; input.focus(); }
-  };
-  $('ytCancel').onclick = () => dialog.close();
+  $('audClose').onclick = () => dialog.close();
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
 
   function show(s: Status) {
@@ -112,7 +105,6 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
 
   function setBusy(on: boolean) {
     busy = on;
-    submit.disabled = on;
     fileInput.disabled = on;
     fileBtn.classList.toggle('disabled', on);
   }
@@ -144,21 +136,11 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
       addSong(song, dialog.open);
       setBusy(false);
       progress.hidden = true;
-      input.value = '';
       dialog.close();
     } catch (err) {
       fail((err as Error).message);
     }
   }
-
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    void run(() => api<Status>('/api/importar', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ link: input.value }),
-    }));
-  });
 
   fileBtn.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
@@ -177,4 +159,9 @@ export function initYoutubeImport(addSong: (song: Song, open: boolean) => void) 
   for (const { id, title } of saved()) {
     fetchSong(id, title).then(song => addSong(song, false), () => { /* servidor fora: segue sem ela */ });
   }
+
+  return () => {
+    dialog.showModal();
+    if (!busy) { error.hidden = true; fileBtn.focus(); }
+  };
 }

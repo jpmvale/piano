@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Piano Cascata</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0f16'/%3E%3Crect x='14' y='8' width='9' height='22' rx='3' fill='%2382b2f0'/%3E%3Crect x='28' y='14' width='9' height='16' rx='3' fill='%23a8ef55'/%3E%3Crect x='42' y='6' width='9' height='24' rx='3' fill='%23a8ef55'/%3E%3Cpath d='M8 36h48v16a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z' fill='%23eceef4'/%3E%3Cpath d='M20 36h2v20h-2zm11 0h2v20h-2zm11 0h2v20h-2z' fill='%230d0f16'/%3E%3Crect x='16' y='36' width='7' height='11' rx='1' fill='%230d0f16'/%3E%3Crect x='38' y='36' width='7' height='11' rx='1' fill='%230d0f16'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -12,46 +13,48 @@
 <body>
 <header>
   <div class="brand"><h1>Piano <span>Cascata</span></h1></div>
-  <div class="songs" id="songs" role="group" aria-label="Escolher música"></div>
-  <label class="btn ghost" id="openMidi" title="Abrir um arquivo .mid do seu computador">
-    <svg viewBox="0 0 24 24"><path d="M12 4l5 5h-3v6h-4V9H7zM5 18h14v2H5z"/></svg>Abrir MIDI
-    <input type="file" id="midiFile" accept=".mid,.midi,audio/midi" hidden>
-  </label>
-  <button class="btn ghost" id="openYoutube" title="Transcrever a música de um vídeo de piano do YouTube">
-    <svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4a2.5 2.5 0 0 0-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8a2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8c.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3z"/></svg>Importar do YouTube
-  </button>
   <div class="meta" id="meta"></div>
+  <div class="add">
+    <button class="btn icon" id="addBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="addMenu"
+      title="Adicionar música" aria-label="Adicionar música">
+      <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+    </button>
+    <div class="menu" id="addMenu" role="menu" hidden>
+      <label class="menu-item" role="menuitem" tabindex="-1" id="addMidi">
+        <b>Arquivo MIDI</b><span>.mid, abre na hora</span>
+        <input type="file" id="midiFile" accept=".mid,.midi,audio/midi" hidden>
+      </label>
+      <button class="menu-item" role="menuitem" tabindex="-1" id="addAudio">
+        <b>Áudio MP3</b><span>transcreve as notas do piano</span>
+      </button>
+    </div>
+  </div>
 </header>
 
-<dialog id="ytDialog" aria-labelledby="ytTitle">
-  <form id="ytForm">
-    <h2 id="ytTitle">Importar do YouTube</h2>
+<dialog id="audDialog" aria-labelledby="audTitle">
+  <form id="audForm" method="dialog">
+    <h2 id="audTitle">Importar áudio</h2>
     <div class="warn" role="note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z"/></svg>
       <div>
-        <strong>O vídeo precisa ter só o som do piano.</strong>
-        Voz, bateria, violão, outros instrumentos, narração ou ruído viram notas erradas.
-        Tutoriais de piano e gravações de piano solo funcionam melhor.
+        <strong>Use gravações só de piano, de músicas simples.</strong>
+        Voz, outros instrumentos ou ruído viram notas erradas, e trechos com muitas notas
+        ao mesmo tempo costumam perder notas.
       </div>
     </div>
-    <label for="ytLink">Link do vídeo</label>
-    <input id="ytLink" type="text" inputmode="url" required autocomplete="off" spellcheck="false"
-      placeholder="https://www.youtube.com/watch?v=…">
-    <p class="fine or">ou
-      <label class="link" id="ytFileBtn" tabindex="0" role="button">envie o arquivo de áudio da música
-        <input type="file" id="ytFile" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.webm" hidden>
-      </label>
-      (mp3, m4a, wav…, até 60 MB)</p>
-    <p class="fine">A transcrição leva cerca de duas vezes a duração da música (até 15 minutos por música).
-      Você pode fechar esta janela e continuar tocando: a música entra na lista quando ficar pronta.</p>
-    <div class="yt-progress" id="ytProgress" hidden aria-live="polite">
-      <div class="yt-state"><b id="ytState"></b> <span id="ytDetail"></span></div>
-      <div class="yt-rail"><div class="yt-fill" id="ytBar"></div></div>
+    <label class="btn primary pick" id="audFileBtn" tabindex="0" role="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l5 5h-3v6h-4V9H7zM5 18h14v2H5z"/></svg>Escolher arquivo de áudio
+      <input type="file" id="audFile" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.webm" hidden>
+    </label>
+    <p class="fine">mp3, m4a, wav… até 60 MB e 15 minutos. Você pode fechar esta janela e continuar
+      tocando: a música abre na lista quando ficar pronta.</p>
+    <div class="imp-progress" id="audProgress" hidden aria-live="polite">
+      <div class="imp-state"><b id="audState"></b> <span id="audDetail"></span></div>
+      <div class="imp-rail"><div class="imp-fill" id="audBar"></div></div>
     </div>
-    <p class="yt-error" id="ytError" role="alert" hidden></p>
+    <p class="imp-error" id="audError" role="alert" hidden></p>
     <div class="actions">
-      <button type="button" class="btn ghost" id="ytCancel">Fechar</button>
-      <button type="submit" class="btn primary" id="ytSubmit">Transcrever</button>
+      <button type="button" class="btn ghost" id="audClose">Fechar</button>
     </div>
   </form>
 </dialog>
@@ -71,7 +74,12 @@
     <span class="time" id="tEnd">0:00</span>
   </div>
 
-  <div class="bar">
+  <div class="bar" id="transport">
+    <div class="group">
+      <label class="group-label" for="songSel">Música</label>
+      <select id="songSel"></select>
+    </div>
+
     <div class="group">
       <button class="btn" id="stop" title="Parar e voltar ao início (Esc)" aria-label="Parar"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
       <button class="btn" id="prev" title="Compasso anterior (←)" aria-label="Compasso anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg></button>
@@ -94,6 +102,10 @@
       <button class="btn" id="loopBtn" aria-pressed="false" title="Repetir o trecho A–B (\)">Repetir</button>
       <button class="btn" id="clearLoop" title="Apagar o trecho" aria-label="Apagar o trecho">×</button>
     </div>
+
+    <button class="btn" id="theaterBtn" aria-pressed="false" title="Tela cheia: só as teclas e o controle de tocar (F)">
+      <svg viewBox="0 0 24 24" id="theaterIcon"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg><span>Tela cheia</span>
+    </button>
   </div>
 
   <div class="bar">
@@ -129,7 +141,7 @@
   </div>
 
   <p class="hint">
-    <kbd>Espaço</kbd> tocar/pausar · <kbd>←</kbd><kbd>→</kbd> compasso · <kbd>↑</kbd><kbd>↓</kbd> velocidade · <kbd>Esc</kbd> parar · <kbd>[</kbd><kbd>]</kbd><kbd>\</kbd> trecho ·
+    <kbd>Espaço</kbd> tocar/pausar · <kbd>←</kbd><kbd>→</kbd> compasso · <kbd>↑</kbd><kbd>↓</kbd> velocidade · <kbd>Esc</kbd> parar · <kbd>[</kbd><kbd>]</kbd><kbd>\</kbd> trecho · <kbd>F</kbd> tela cheia ·
     arraste as notas para voltar ou avançar · toque nas teclas da tela ou nas fileiras <kbd>Z</kbd>…<kbd>M</kbd> e <kbd>Q</kbd>…<kbd>P</kbd> do computador
   </p>
   <p class="credits">Som de piano: amostras de <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noopener">tonejs-instruments</a>, de Nicholaus Brosowsky (CC BY 3.0).</p>
