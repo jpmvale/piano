@@ -1,11 +1,14 @@
 import './style.css';
 import { Piano, type Voice } from './audio';
 import { ComputerKeyboard, connectMidi } from './input';
-import { songFromMidiFile } from './midiImport';
+import { songFromMidi, songFromMidiFile } from './midiImport';
 import { LEAD, Player, type Mode } from './player';
 import { Renderer, NAMES, type NameStyle, type Pressed } from './renderer';
 import { BUILTIN_SONGS, type Song } from './songs';
 import { initAudioImport } from './audioImport';
+import { api, quandoPerderSessao } from './api';
+import { pedirEntrada, sair, usuarioAtual, type Usuario } from './auth';
+import { initLibrary, type Musica } from './library';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -15,8 +18,8 @@ const player = new Player(
   () => piano.stopAll(),
 );
 const renderer = new Renderer($<HTMLCanvasElement>('cv'));
-const songs: Song[] = [...BUILTIN_SONGS];
-let current = 0;
+// Músicas já abertas nesta visita, pelo id do servidor (as notas vêm do MIDI ou de songs.ts).
+const cache = new Map<string, Song>();
 
 // ---------- Notas tocadas pela pessoa (tela, computador ou MIDI) ----------
 const held = new Map<number, { voice: Voice | null; kind: Pressed['kind'] }>();
@@ -35,64 +38,111 @@ function userNote(midi: number, on: boolean, velocity = 0.8) {
 const pcKeyboard = new ComputerKeyboard(userNote);
 
 // ---------- Música ----------
-function loadSong(i: number) {
-  current = i;
-  const s = songs[i];
+function loadSong(s: Song) {
   player.load(s);
   renderer.setRange(s.notes.map(n => n.midi));
   updatePcBase();
-  renderSongList();
   renderTicks();
+  $('songTitleBtn').textContent = s.title;
   const parts = s.bpm
     ? [s.key, `${s.beatsPerBar}/4`, `${s.bpm} BPM`, `${s.bars.length} compassos`].filter(Boolean)
     : ['Música transcrita do áudio'];
   $('meta').textContent = parts.join(' · ');
   refreshLoop();
   setPlayIcon();
+  library.marcarAtual(s.id);
 }
-function renderSongList() {
-  const sel = $<HTMLSelectElement>('songSel');
-  sel.innerHTML = '';
-  songs.forEach((s, i) => sel.add(new Option(s.title, String(i), false, i === current)));
-  const box = $('songsMenu');
-  box.innerHTML = '';
-  songs.forEach((s, i) => {
-    const b = document.createElement('button');
-    b.className = 'menu-item';
-    b.setAttribute('role', 'menuitemradio');
-    b.setAttribute('aria-checked', String(i === current));
-    b.tabIndex = -1;
-    b.innerHTML = '<b></b><span></span>';
-    b.querySelector('b')!.textContent = s.title;
-    b.querySelector('span')!.textContent = i < BUILTIN_SONGS.length ? 'música da casa' : 'importada';
-    b.onclick = () => loadSong(i);
-    box.appendChild(b);
-  });
+function remember(id: string) {
+  try { localStorage.setItem('pc-ultima', id); } catch { /* sem armazenamento */ }
 }
-$<HTMLSelectElement>('songSel').onchange = e => {
-  loadSong(Number((e.target as HTMLSelectElement).value));
-  (e.target as HTMLSelectElement).blur(); // devolve o teclado aos atalhos
-};
+
+async function songOf(m: Musica): Promise<Song> {
+  let song = cache.get(m.id);
+  if (!song) {
+    if (m.origem === 'casa') {
+      const base = BUILTIN_SONGS.find(b => b.id === m.id);
+      if (!base) throw new Error('Essa música não existe mais nesta versão do jogo.');
+      song = { ...base };
+    } else {
+      song = songFromMidi(await api<ArrayBuffer>(`/api/musicas/${encodeURIComponent(m.id)}/midi`), m.titulo);
+      // A transcrição sai em segundos, sem andamento de verdade: o MIDI vem com o
+      // padrão de 120 BPM, e mostrar esse número seria inventar.
+      if (m.origem === 'audio') song.bpm = 0;
+    }
+    cache.set(m.id, song);
+  }
+  song.id = m.id;
+  song.title = m.titulo;
+  return song;
+}
+
+async function play(m: Musica) {
+  try {
+    stop();
+    loadSong(await songOf(m));
+    remember(m.id);
+  } catch (err) {
+    $('meta').textContent = (err as Error).message;
+  }
+}
+
+const library = initLibrary({
+  tocar: m => void play(m),
+  apagada: id => {
+    cache.delete(id);
+    // Apagou a que estava tocando: volta para a primeira da lista.
+    if (player.song.id === id) {
+      const outra = library.musicas()[0];
+      if (outra) void play(outra);
+    }
+  },
+  renomeada: m => {
+    const s = cache.get(m.id);
+    if (s) s.title = m.titulo;
+    if (player.song.id === m.id) $('songTitleBtn').textContent = m.titulo;
+  },
+});
+$('songsBtn').onclick = () => library.abrir();
+$('songTitleBtn').onclick = () => library.abrir();
+
 $<HTMLInputElement>('midiFile').addEventListener('change', async e => {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
+  let song: Song;
   try {
-    const song = await songFromMidiFile(file);
-    songs.push(song);
-    loadSong(songs.length - 1);
+    song = await songFromMidiFile(file);
   } catch (err) {
     $('meta').textContent = 'Não consegui ler esse arquivo: ' + ((err as Error).message || 'formato desconhecido');
+    return;
+  }
+  // Toca na hora e guarda no servidor como música sua.
+  loadSong(song);
+  const body = new FormData();
+  body.append('arquivo', file);
+  body.append('titulo', song.title);
+  body.append('notas', String(song.notes.length));
+  body.append('duracao', String(song.duration));
+  try {
+    const m = await api<Musica>('/api/musicas/midi', { method: 'POST', body });
+    cache.set(m.id, song);
+    song.id = m.id;
+    library.marcarAtual(m.id);
+    remember(m.id);
+    await library.atualizar();
+  } catch (err) {
+    $('meta').textContent = 'Tocando, mas não consegui guardar no servidor: ' + (err as Error).message;
   }
 });
 
-const openAudio = initAudioImport((song, open) => {
-  songs.push(song);
-  if (open) loadSong(songs.length - 1); else renderSongList();
+const openAudio = initAudioImport(async (id, open) => {
+  const ms = await library.atualizar();
+  const m = ms.find(x => x.id === id);
+  if (m && open) void play(m);
 });
 
-// ---------- Menus do topo: músicas salvas e + (MIDI ou MP3) ----------
+// ---------- Menus do topo: + (MIDI ou MP3) e conta ----------
 function menu(wrap: HTMLElement) {
   const btn = wrap.querySelector<HTMLElement>('.btn')!, box = wrap.querySelector<HTMLElement>('.menu')!;
   const set = (open: boolean) => {
@@ -116,9 +166,47 @@ function menu(wrap: HTMLElement) {
   });
   box.addEventListener('click', e => { if ((e.target as HTMLElement).closest('.menu-item')) set(false); });
 }
-menu($('songsWrap'));
 menu($('addWrap'));
+menu($('userWrap'));
 $('addAudio').onclick = () => openAudio();
+
+// ---------- Conta ----------
+function showUser(u: Usuario) {
+  $('userBtn').textContent = u.nome.trim().charAt(0).toUpperCase() || '?';
+  $('userBtn').title = `${u.nome} (${u.email})`;
+  $('userName').textContent = u.nome;
+  $('userEmail').textContent = u.email;
+  $('userAdmin').hidden = u.papel !== 'ADMIN';
+}
+
+let entrando: Promise<void> | null = null;
+/** Pede login (se preciso) e carrega as músicas da conta. */
+function entrar(): Promise<void> {
+  entrando ??= (async () => {
+    stop();
+    const u = (await usuarioAtual()) ?? (await pedirEntrada());
+    showUser(u);
+    cache.clear();
+    const ms = await library.atualizar();
+    let ultima: string | null = null;
+    try { ultima = localStorage.getItem('pc-ultima'); } catch { /* sem armazenamento */ }
+    const m = ms.find(x => x.id === ultima);
+    if (m) await play(m);
+    else library.abrir(); // primeira visita: começa escolhendo a música
+  })().finally(() => { entrando = null; });
+  return entrando;
+}
+quandoPerderSessao(() => {
+  if (!entrando) {
+    document.querySelectorAll('dialog[open]').forEach(d => (d as HTMLDialogElement).close());
+    void entrar();
+  }
+});
+$('logoutBtn').onclick = async () => {
+  await sair();
+  try { localStorage.removeItem('pc-ultima'); } catch { /* sem armazenamento */ }
+  void entrar();
+};
 
 // Teclas do computador começam no Dó mais grave da parte que você toca
 function updatePcBase() {
@@ -335,8 +423,9 @@ try {
   if (localStorage.getItem('pc-keys') === '1') $('pcKeys').setAttribute('aria-pressed', 'true');
 } catch { /* sem armazenamento */ }
 renderer.resize();
-loadSong(0);
+loadSong(BUILTIN_SONGS[0]); // o palco já aparece atrás da tela de entrada
 setMode('listen');
 setSpeed(1);
 player.seek(-LEAD + 0.6); // primeiras notas já descendo, para a tela não abrir vazia
 requestAnimationFrame(frame);
+void entrar();

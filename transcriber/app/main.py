@@ -27,14 +27,15 @@ import tempfile
 import threading
 import time
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from yt_dlp.utils import DownloadError
 
-from . import youtube
+from . import contas, musicas, youtube
 from .comum import ErroParaPessoa, conferir_limite, duracao, explicar_download, iniciar_transcricao, \
     resultado_transcricao
+from .contas import Usuario, exigir_usuario
 
 DADOS = os.environ.get('DADOS', '/data')
 PASTA_MIDI = os.path.join(DADOS, 'midi')
@@ -57,7 +58,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 os.makedirs(PASTA_MIDI, exist_ok=True)
 os.makedirs(PASTA_ENVIOS, exist_ok=True)
 
+contas.iniciar()
+musicas.iniciar()
+
 app = FastAPI(title='Piano Cascata: importação', docs_url=None, redoc_url=None)
+app.include_router(contas.router)
+app.include_router(musicas.router)
 
 
 class Pedido(BaseModel):
@@ -76,6 +82,7 @@ class Trabalho:
         self.estimativa = 0.0
         self.erro = ''
         self.atualizado = time.time()
+        self.donos: set[int] = set()  # quem pediu: cada um ganha a música quando ficar pronta
 
     def json(self) -> dict:
         d = {'id': self.id, 'estado': self.estado, 'titulo': self.titulo, 'duracao': self.duracao}
@@ -152,6 +159,8 @@ def _guardar(t: Trabalho, midi_tmp: str, notas: int) -> None:
 
 def _encerrar(t: Trabalho, estado: str, erro: str = '') -> None:
     t.estado, t.erro, t.atualizado = estado, erro, time.time()
+    if estado == 'pronto':
+        musicas.guardar_transcricao(t.donos, t.id)
     if t.arquivo:
         with contextlib.suppress(OSError):
             os.unlink(t.arquivo)
@@ -201,7 +210,8 @@ def _trabalhador() -> None:
                 mudou.wait(timeout=5)
         try:
             _processar(t)
-            _encerrar(t, 'pronto')
+            with trava:  # quem pede a mesma música agora entra em t.donos sob esta trava
+                _encerrar(t, 'pronto')
         except ErroParaPessoa as e:
             _encerrar(t, 'erro', str(e))
         except Exception:  # noqa: BLE001 — qualquer falha vira mensagem, e a fila segue
@@ -221,34 +231,45 @@ def saude() -> dict:
             'mac': _mac_ligado()}
 
 
-def _ja_existe(trabalho_id: str) -> Trabalho | None:
+def _ja_existe(trabalho_id: str, u: Usuario) -> Trabalho | None:
     t = trabalhos.get(trabalho_id)
-    if t and t.estado != 'erro':
-        return t
-    pronto = _pronto_em_disco(trabalho_id)
-    if pronto:
-        trabalhos[trabalho_id] = pronto
-    return pronto
+    if not t or t.estado == 'erro':
+        t = _pronto_em_disco(trabalho_id)
+        if t:
+            trabalhos[trabalho_id] = t
+    if t and t.estado == 'pronto':
+        musicas.guardar_transcricao({u.id}, t.id)
+    elif t:
+        t.donos.add(u.id)
+    return t
+
+
+def _resposta(t: Trabalho, u: Usuario) -> dict:
+    d = t.json()
+    if t.estado == 'pronto':
+        d['musica'] = musicas.musica_da_importacao(u.id, t.id)
+    return d
 
 
 @app.post('/api/importar')
-def importar(p: Pedido) -> dict:
+def importar(p: Pedido, u: Usuario = Depends(exigir_usuario)) -> dict:
     video_id = youtube.id_do_video(p.link)
     if not video_id:
         raise HTTPException(400, 'Esse não parece um link de vídeo do YouTube.')
     with trava:
-        t = _ja_existe(video_id)
+        t = _ja_existe(video_id, u)
         if t:
-            return t.json()
+            return _resposta(t, u)
         if len(pendentes) >= MAX_FILA:
             raise HTTPException(429, 'Muitas músicas na fila agora. Tente de novo em alguns minutos.')
         t = Trabalho(video_id)
+        t.donos.add(u.id)
         _enfileirar(t)
         return t.json()
 
 
 @app.post('/api/enviar')
-def enviar(arquivo: UploadFile = File(...)) -> dict:
+def enviar(arquivo: UploadFile = File(...), u: Usuario = Depends(exigir_usuario)) -> dict:
     """Recebe um arquivo de áudio (mp3, m4a, wav…) e põe na mesma fila do YouTube."""
     limite = MAX_MB_ENVIO * 1024 * 1024
     fd, caminho = tempfile.mkstemp(dir=PASTA_ENVIOS)
@@ -270,32 +291,33 @@ def enviar(arquivo: UploadFile = File(...)) -> dict:
     trabalho_id = soma.hexdigest()[:11]
     titulo = os.path.splitext(os.path.basename(arquivo.filename or ''))[0].strip()[:120] or 'Áudio enviado'
     with trava:
-        t = _ja_existe(trabalho_id)
+        t = _ja_existe(trabalho_id, u)
         if t:
             os.unlink(caminho)
-            return t.json()
+            return _resposta(t, u)
         if len(pendentes) >= MAX_FILA:
             os.unlink(caminho)
             raise HTTPException(429, 'Muitas músicas na fila agora. Tente de novo em alguns minutos.')
         t = Trabalho(trabalho_id, arquivo=caminho)
         t.titulo = titulo
+        t.donos.add(u.id)
         _enfileirar(t)
         return t.json()
 
 
 @app.get('/api/importar/{video_id}')
-def situacao(video_id: str) -> dict:
+def situacao(video_id: str, u: Usuario = Depends(exigir_usuario)) -> dict:
     if not youtube.id_valido(video_id):
         raise HTTPException(404, 'Importação não encontrada.')
     with trava:
         t = trabalhos.get(video_id) or _pronto_em_disco(video_id)
         if not t:
             raise HTTPException(404, 'Importação não encontrada.')
-        return t.json()
+        return _resposta(t, u)
 
 
 @app.get('/api/importar/{video_id}/midi')
-def baixar_midi(video_id: str) -> FileResponse:
+def baixar_midi(video_id: str, u: Usuario = Depends(exigir_usuario)) -> FileResponse:
     if not youtube.id_valido(video_id):
         raise HTTPException(404)
     midi, _ = _arquivos(video_id)

@@ -1,15 +1,12 @@
 """Fila com o Mac: entrega, sinal de vida, devolução do MIDI e recusa sem token."""
 import io
-import os
-import tempfile
 import unittest
 
-_DADOS = tempfile.mkdtemp()
-os.environ.update(DADOS=_DADOS, MAC_TOKEN='segredo', MODO_TRANSCRICAO='mac')
+from tests.ajuda import cadastrar  # antes do app: prepara o ambiente  # isort: skip
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from app import main  # noqa: E402
+from app import main
 
 AUTH = {'Authorization': 'Bearer segredo'}
 MIDI = b'MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0MTrk\x00\x00\x00\x04\x00\xff\x2f\x00'
@@ -18,6 +15,7 @@ MIDI = b'MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0MTrk\x00\x00\x00\x04\x00\xf
 class TesteMac(unittest.TestCase):
     def setUp(self):
         self.c = TestClient(main.app)
+        cadastrar(self.c)
 
     def enviar(self, conteudo: bytes) -> str:
         r = self.c.post('/api/enviar', files={'arquivo': ('Minha música.mp3', io.BytesIO(conteudo))})
@@ -52,6 +50,17 @@ class TesteMac(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(self.c.get(f'/api/importar/{tid}').json()['estado'], 'pronto')
         self.assertEqual(self.c.get(f'/api/importar/{tid}/midi').content, MIDI)
+        # Quem enviou ganhou a música, com dono, e só ela vê como sua
+        mid = self.c.get(f'/api/importar/{tid}').json()['musica']
+        m = next(m for m in self.c.get('/api/musicas').json() if m['id'] == mid)
+        self.assertEqual((m['titulo'], m['origem'], m['minha'], m['notas']), ('Minha música', 'audio', True, 3))
+        self.assertEqual(self.c.get(f'/api/musicas/{mid}/midi').content, MIDI)
+        # Outra pessoa que envia o mesmo áudio recebe o MIDI na hora, como música dela
+        outro = TestClient(main.app)
+        cadastrar(outro)
+        r = outro.post('/api/enviar', files={'arquivo': ('outro nome.mp3', io.BytesIO(b'audio de mentira 1'))})
+        self.assertEqual(r.json()['estado'], 'pronto')
+        self.assertNotIn(r.json()['musica'], (None, mid))
         # Depois de pronto, a música não é mais do Mac
         self.assertEqual(self.c.post(f'/api/mac/{tid}/estado', headers=AUTH,
                                      json={'estado': 'transcrevendo'}).status_code, 409)

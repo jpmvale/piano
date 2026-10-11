@@ -52,6 +52,9 @@ jobs:
           docker run -d --name piano-api-ci -p 8000:8000 piano-api:ci
           for _ in $(seq 1 20); do curl -fsS localhost:8000/api/health && break; sleep 1; done
           curl -fsS localhost:8000/api/health
-          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"link":"https://vimeo.com/1"}' localhost:8000/api/importar)" = 400
-          test "$(curl -s -o /dev/null -w '%{http_code}' -F 'arquivo=@/dev/null;filename=vazio.mp3' localhost:8000/api/enviar)" = 400
+          # Sem login, nada além da saúde abre
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/api/musicas)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -F 'arquivo=@/dev/null;filename=vazio.mp3' localhost:8000/api/enviar)" = 401
+          # Sem CODIGO_CONVITE, o cadastro fica fechado
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"nome":"a","email":"a@b.cc","senha":"12345678","convite":""}' localhost:8000/api/auth/cadastro)" = 403
           docker rm -f piano-api-ci

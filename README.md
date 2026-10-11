@@ -3,6 +3,7 @@
 "Guitar Hero do piano" para iniciantes, inspirado no canal PHianonize: notas caindo sobre o teclado,
 com controle total da linha do tempo, modo espera e entrada pelo teclado do computador, pela tela ou por teclado MIDI.
 Músicas novas entram pelo botão + do canto: arquivo `.mid` ou áudio MP3 de piano solo, transcrito no servidor (ou no Mac, ver transcriber/mac).
+O jogo pede login (cadastro com código de convite); as músicas ficam no servidor com dono, e a tela "Músicas" mostra a dificuldade de cada uma de 0 a 10.
 
 ## Publicação
 
@@ -13,7 +14,8 @@ O jogo fica em https://piano.imp-software.cloud, na mesma VPS do coda. Cada push
 ```bash
 npm install
 npm run dev      # servidor local com recarga
-# com a importação: rode também o serviço de transcriber/README.md na porta 8000
+# o jogo pede login: rode também o serviço de transcriber/README.md na porta 8000,
+# com CODIGO_CONVITE=... para poder criar a primeira conta
 npm run build    # gera dist/index.html (arquivo único) e dist/artifact.html (formato publicado)
 ```
 
@@ -26,7 +28,9 @@ npm run build    # gera dist/index.html (arquivo único) e dist/artifact.html (f
 - `src/input.ts`: teclado do computador e Web MIDI.
 - `src/midiImport.ts`: abrir arquivos `.mid` e separar as mãos quando o arquivo tem uma faixa só.
 - `src/audioImport.ts`: janela "Importar áudio" (aviso de piano solo e músicas simples, fila, progresso).
-- `transcriber/`: serviço da importação (yt-dlp + Transkun). Ver [transcriber/README.md](transcriber/README.md).
+- `src/auth.ts`, `src/api.ts`: tela de entrada (entrar / criar conta com convite) e as chamadas ao servidor.
+- `src/library.ts`: tela de escolha de músicas (dificuldade 0 a 10, busca, renomear e apagar conforme a permissão).
+- `transcriber/`: o servidor: contas, músicas e a importação (yt-dlp + Transkun). Ver [transcriber/README.md](transcriber/README.md).
 - `scripts/make-samples.sh`: regenera as amostras a partir do pacote `tonejs-instrument-piano-mp3`.
 
 Amostras de piano: tonejs-instruments, de Nicholaus Brosowsky (CC BY 3.0).

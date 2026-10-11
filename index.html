@@ -14,13 +14,9 @@
 <header>
   <div class="brand"><h1>Piano <span>Cascata</span></h1></div>
   <div class="meta" id="meta"></div>
-  <div class="add" id="songsWrap">
-    <button class="btn ghost" id="songsBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="songsMenu"
-      title="Escolher uma música salva">
-      <svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-6.8V17a3 3 0 1 1-2-2.8V6h5v3.2z"/></svg>Músicas
-    </button>
-    <div class="menu songs-menu" id="songsMenu" role="menu" hidden></div>
-  </div>
+  <button class="btn ghost" id="songsBtn" aria-haspopup="dialog" title="Escolher uma música">
+    <svg viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-6.8V17a3 3 0 1 1-2-2.8V6h5v3.2z"/></svg><span>Músicas</span>
+  </button>
   <div class="add" id="addWrap">
     <button class="btn icon" id="addBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="addMenu"
       title="Adicionar música" aria-label="Adicionar música">
@@ -36,7 +32,57 @@
       </button>
     </div>
   </div>
+  <div class="add" id="userWrap">
+    <button class="btn ghost avatar" id="userBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu"
+      title="Sua conta" aria-label="Sua conta"></button>
+    <div class="menu" id="userMenu" role="menu" hidden>
+      <div class="menu-head"><b id="userName"></b><span id="userEmail"></span><span class="tag" id="userAdmin" hidden>Administrador</span></div>
+      <button class="menu-item" role="menuitem" tabindex="-1" id="logoutBtn"><b>Sair</b></button>
+    </div>
+  </div>
 </header>
+
+<section id="authScreen" hidden aria-labelledby="authTitle">
+  <form id="authForm" class="auth-card">
+    <h2 id="authTitle">Piano <span>Cascata</span></h2>
+    <p class="fine">Entre para tocar e guardar suas músicas. Para criar uma conta, você precisa de um código de convite.</p>
+    <div class="seg" id="authTabs" role="tablist">
+      <button type="button" role="tab" data-tab="entrar" aria-selected="true">Entrar</button>
+      <button type="button" role="tab" data-tab="criar" aria-selected="false">Criar conta</button>
+    </div>
+    <label class="campo so-criar" hidden>Nome<input id="authNome" autocomplete="name" maxlength="80"></label>
+    <label class="campo">E-mail<input id="authEmail" type="email" autocomplete="email" required maxlength="200"></label>
+    <label class="campo">Senha<input id="authSenha" type="password" autocomplete="current-password" required minlength="8" maxlength="200"></label>
+    <label class="campo so-criar" hidden>Código de convite<input id="authConvite" autocomplete="off" maxlength="200"></label>
+    <p class="imp-error" id="authError" role="alert" hidden></p>
+    <button class="btn primary" id="authSubmit">Entrar</button>
+  </form>
+</section>
+
+<dialog id="libDialog" class="lib" aria-labelledby="libTitle">
+  <div class="lib-head">
+    <h2 id="libTitle">Escolha uma música</h2>
+    <button class="btn ghost" id="libFechar" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg></button>
+  </div>
+  <div class="lib-tools">
+    <input id="libBusca" type="search" placeholder="Buscar pelo nome" aria-label="Buscar pelo nome">
+    <select id="libOrdem" aria-label="Ordem">
+      <option value="facil">Mais fáceis primeiro</option>
+      <option value="dificil">Mais difíceis primeiro</option>
+      <option value="nome">Nome</option>
+      <option value="recentes">Mais recentes</option>
+    </select>
+    <div class="seg" id="libFiltro" role="group" aria-label="Quais músicas">
+      <button data-filtro="todas" aria-pressed="true">Todas</button>
+      <button data-filtro="casa" aria-pressed="false">Da casa</button>
+      <button data-filtro="minhas" aria-pressed="false">Minhas</button>
+    </div>
+  </div>
+  <p class="imp-error" id="libErro" role="alert" hidden></p>
+  <ul id="libLista"></ul>
+  <p class="lib-vazio" id="libVazio" hidden></p>
+  <p class="fine lib-nota">Dificuldade de 0 a 10 pelas notas por minuto, contando as duas mãos: um ponto a cada 40 notas por minuto (400 ou mais é 10).</p>
+</dialog>
 
 <dialog id="audDialog" aria-labelledby="audTitle">
   <form id="audForm" method="dialog">
@@ -83,8 +129,8 @@
 
   <div class="bar" id="transport">
     <div class="group">
-      <label class="group-label" for="songSel">Música</label>
-      <select id="songSel"></select>
+      <span class="group-label">Música</span>
+      <button class="btn" id="songTitleBtn" aria-haspopup="dialog" title="Trocar de música"></button>
     </div>
 
     <div class="group">

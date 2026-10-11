@@ -12,6 +12,7 @@ export interface Note {
 }
 
 export interface Song {
+  id?: string;           // id no servidor (as da casa já nascem com ele)
   title: string;
   key: string;           // tonalidade, mostrada no canto como no PHianonize
   bpm: number;
@@ -23,6 +24,7 @@ export interface Song {
 
 // Músicas escritas à mão: "NOTA:tempos", R = pausa, "|" só separa compassos.
 interface SongText {
+  id: string;      // mesmo id da música no servidor (transcriber/app/musicas.py)
   title: string;
   key: string;
   bpm: number;
@@ -34,7 +36,7 @@ interface SongText {
 
 const TEXT_SONGS: SongText[] = [
   {
-    title: 'Brilha, Brilha Estrelinha', key: 'Dó maior', bpm: 92, beatsPerBar: 4, pickup: 0,
+    id: 'casa:brilha-brilha', title: 'Brilha, Brilha Estrelinha', key: 'Dó maior', bpm: 92, beatsPerBar: 4, pickup: 0,
     rh: `C4 C4 G4 G4 | A4 A4 G4:2 | F4 F4 E4 E4 | D4 D4 C4:2 |
          G4 G4 F4 F4 | E4 E4 D4:2 | G4 G4 F4 F4 | E4 E4 D4:2 |
          C4 C4 G4 G4 | A4 A4 G4:2 | F4 F4 E4 E4 | D4 D4 C4:2`,
@@ -43,13 +45,13 @@ const TEXT_SONGS: SongText[] = [
          C3:4 | F3:2 C3:2 | F3:2 C3:2 | G3:2 C3:2`,
   },
   {
-    title: 'Parabéns pra Você', key: 'Dó maior', bpm: 108, beatsPerBar: 3, pickup: 1,
+    id: 'casa:parabens', title: 'Parabéns pra Você', key: 'Dó maior', bpm: 108, beatsPerBar: 3, pickup: 1,
     rh: `G4:.75 G4:.25 | A4 G4 C5 | B4:2 G4:.75 G4:.25 | A4 G4 D5 | C5:2 G4:.75 G4:.25 |
          G5 E5 C5 | B4 A4 F5:.75 F5:.25 | E5 C5 D5 | C5:3`,
     lh: `R:1 | C3:3 | G2:3 | G2:3 | C3:3 | C3:3 | F2:3 | C3:2 G2:1 | C3:3`,
   },
   {
-    title: 'Ode à Alegria', key: 'Dó maior', bpm: 100, beatsPerBar: 4, pickup: 0,
+    id: 'casa:ode-alegria', title: 'Ode à Alegria', key: 'Dó maior', bpm: 100, beatsPerBar: 4, pickup: 0,
     rh: `E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | E4:1.5 D4:.5 D4:2 |
          E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | D4:1.5 C4:.5 C4:2 |
          D4 D4 E4 C4 | D4 E4:.5 F4:.5 E4 C4 | D4 E4:.5 F4:.5 E4 D4 | C4 D4 G3:2 |
@@ -59,7 +61,7 @@ const TEXT_SONGS: SongText[] = [
   },
   {
     // Arranjo fácil próprio (a composição de Pachelbel é de domínio público).
-    title: 'Cânone em Ré (fácil)', key: 'Ré maior', bpm: 72, beatsPerBar: 4, pickup: 0,
+    id: 'casa:canone-re', title: 'Cânone em Ré (fácil)', key: 'Ré maior', bpm: 72, beatsPerBar: 4, pickup: 0,
     rh: `R:16 |
          F#5:2 E5:2 | D5:2 C#5:2 | B4:2 A4:2 | B4:2 C#5:2 |
          D5:2 C#5:2 | B4:2 A4:2 | G4:2 F#4:2 | G4:2 E4:2 |
@@ -103,7 +105,7 @@ function fromText(def: SongText): Song {
   const bars: number[] = [];
   for (let b = def.pickup; b < totalBeats - 1e-6; b += def.beatsPerBar) bars.push(b * spb);
   return {
-    title: def.title, key: def.key, bpm: def.bpm, beatsPerBar: def.beatsPerBar,
+    id: def.id, title: def.title, key: def.key, bpm: def.bpm, beatsPerBar: def.beatsPerBar,
     notes: [...r.notes, ...l.notes].sort((a, b) => a.time - b.time || a.midi - b.midi),
     bars,
     duration: totalBeats * spb,

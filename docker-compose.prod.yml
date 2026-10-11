@@ -40,9 +40,10 @@ services:
       # que exportou os cookies (ver transcriber/README.md). Sem o arquivo, segue
       # sem cookies.
       YTDLP_COOKIES: /cookies/youtube.txt
-    # Configuração que não vai para o repositório: MAC_TOKEN (liga a transcrição
-    # no Mac, ver transcriber/mac/README.md) e MODO_TRANSCRICAO. Opcional: sem
-    # o arquivo, a própria VPS transcreve, como antes.
+    # Configuração que não vai para o repositório: CODIGO_CONVITE (libera o
+    # cadastro; sem ele ninguém cria conta) e ADMIN_EMAIL (quem é administrador),
+    # ver transcriber/README.md; MAC_TOKEN (liga a transcrição no Mac, ver
+    # transcriber/mac/README.md) e MODO_TRANSCRICAO.
     env_file:
       - path: ${HOME}/apps/piano-api.env
         required: false
@@ -60,7 +61,7 @@ services:
       - edge
 
 volumes:
-  # MIDI já transcritos: reimportar o mesmo vídeo é instantâneo.
+  # Contas e músicas (piano.db) e os MIDI: reimportar o mesmo áudio é instantâneo.
   piano-dados:
 
 networks:

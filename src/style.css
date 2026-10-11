@@ -43,8 +43,16 @@ header {
 /* Botão + com o menu MIDI / MP3 */
 .add { position: relative; }
 #songsBtn { height: 40px; border-radius: 12px; }
-.songs-menu { max-height: min(60vh, 420px); overflow-y: auto; min-width: 260px; }
-.menu-item[aria-checked="true"] b { color: var(--right); }
+.avatar {
+  width: 40px; height: 40px; padding: 0; border-radius: 50%; color: var(--fg);
+  font-family: var(--font-display); font-weight: 800; font-size: 18px; border-color: var(--line-strong);
+}
+.menu-head { display: grid; gap: 2px; padding: 8px 12px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.menu-head span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.tag {
+  justify-self: start; margin-top: 4px; padding: 1px 8px; border-radius: 999px;
+  font-size: 11px !important; font-weight: 700; color: var(--focus) !important; border: 1px solid rgba(255, 209, 102, 0.5);
+}
 .btn.icon { width: 40px; height: 40px; padding: 0; border-radius: 12px; background: var(--right); color: #10140a; border-color: transparent; }
 .btn.icon svg { width: 22px; height: 22px; }
 .menu {
@@ -58,7 +66,7 @@ header {
 }
 .menu-item span { font-size: 12px; color: var(--muted); }
 .menu-item:hover, .menu-item:focus-visible { background: var(--line); outline: none; }
-#songSel { max-width: 220px; }
+#songTitleBtn { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 34px; }
 #theaterBtn { margin-left: auto; }
 
 /* Tela cheia / modo teatro: o palco ocupa tudo, sobra só a linha do tempo e o tocar */
@@ -67,7 +75,7 @@ body.theater header,
 body.theater .controls > .bar:not(#transport),
 body.theater .controls > .hint,
 body.theater .controls > .credits,
-body.theater .group:has(#songSel),
+body.theater .group:has(#songTitleBtn),
 body.theater .group:has(#markA) { display: none; }
 body.theater #stage { padding: 8px 8px 0; }
 body.theater .controls { padding: 8px 12px 10px; gap: 6px; }
@@ -138,7 +146,10 @@ kbd {
 }
 @media (max-width: 640px) {
   .meta { display: none; }
-  #songsWrap { margin-left: auto; }
+  #songsBtn { margin-left: auto; width: 40px; padding: 0; }
+  #songsBtn span { display: none; }
+  header { flex-wrap: nowrap; }
+  #songTitleBtn { max-width: 52vw; }
   #theaterBtn span { display: none; }
   .hint, #pcKeys { display: none; }
   .bar { gap: 8px 12px; }
@@ -176,3 +187,85 @@ dialog::backdrop { background: rgba(5, 6, 10, 0.7); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; }
 .pick { justify-self: start; height: 44px; gap: 8px; cursor: pointer; }
 .pick.disabled { opacity: 0.5; pointer-events: none; }
+
+/* Tela de entrada */
+#authScreen {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(5, 6, 10, 0.82); backdrop-filter: blur(6px);
+}
+body.locked header, body.locked .controls { visibility: hidden; }
+.auth-card {
+  width: min(400px, 100%); display: grid; gap: 14px; padding: 24px; border-radius: 16px;
+  background: var(--panel); border: 1px solid var(--line-strong); box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+}
+.auth-card h2 { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; margin: 0; }
+.auth-card h2 span { color: var(--right); }
+#authTabs { display: grid; grid-template-columns: 1fr 1fr; }
+#authTabs button { justify-content: center; }
+#authTabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.campo { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.campo input, .lib-tools input, .renomear input {
+  height: 40px; padding: 0 12px; border-radius: 8px; font: inherit; font-size: 15px;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line-strong);
+}
+.auth-card .btn.primary { height: 44px; font-size: 15px; }
+
+/* Tela de escolha de músicas */
+dialog.lib {
+  width: min(760px, calc(100vw - 24px)); max-height: min(88vh, 900px);
+  display: none; flex-direction: column; gap: 12px; padding: 18px 18px 14px;
+}
+dialog.lib[open] { display: flex; }
+.lib-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lib-head h2 { font-family: var(--font-display); font-size: 24px; margin: 0; line-height: 1.1; }
+.lib-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lib-tools input { flex: 1 1 200px; height: 36px; font-size: 14px; }
+#libLista { list-style: none; margin: 0; padding: 0 2px; display: grid; gap: 8px; overflow-y: auto; min-height: 120px; }
+.cartao {
+  --cor: hsl(calc(105 - var(--n) * 10.5) 72% 62%);
+  display: flex; align-items: center; gap: 4px; padding-right: 6px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.cartao:hover { border-color: var(--line-strong); }
+.cartao.atual { border-color: var(--right); }
+.cartao-tocar {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 10px 12px;
+  background: none; border: 0; border-radius: 12px; cursor: pointer; text-align: left;
+}
+.nivel {
+  flex: none; width: 52px; height: 52px; border-radius: 12px; display: grid; place-content: center; text-align: center;
+  background: color-mix(in srgb, var(--cor) 16%, transparent); border: 1px solid color-mix(in srgb, var(--cor) 55%, transparent);
+  color: var(--cor); line-height: 1;
+}
+.nivel b { font-family: var(--font-display); font-size: 24px; font-weight: 800; }
+.nivel small { font-size: 10px; opacity: 0.8; }
+.info { min-width: 0; display: grid; gap: 3px; }
+.titulo { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cartao.atual .titulo { color: var(--right); }
+.sub { font-size: 12px; color: var(--muted); }
+.barras { flex: none; display: flex; gap: 2px; align-items: flex-end; height: 22px; margin-left: auto; }
+.barras i { width: 4px; border-radius: 1px; background: var(--line); }
+.barras i:nth-child(1) { height: 6px; }
+.barras i:nth-child(2) { height: 8px; }
+.barras i:nth-child(3) { height: 9px; }
+.barras i:nth-child(4) { height: 11px; }
+.barras i:nth-child(5) { height: 13px; }
+.barras i:nth-child(6) { height: 14px; }
+.barras i:nth-child(7) { height: 16px; }
+.barras i:nth-child(8) { height: 18px; }
+.barras i:nth-child(9) { height: 20px; }
+.barras i:nth-child(10) { height: 21px; }
+.barras i.on { background: var(--cor); }
+.cartao-acoes { display: flex; gap: 2px; }
+.cartao-acoes .btn { width: 36px; padding: 0; }
+.cartao-acoes .perigo:hover { color: var(--hit); }
+.renomear { flex: 1; display: flex; gap: 8px; padding: 8px; }
+.renomear input { flex: 1; min-width: 0; }
+.lib-vazio { margin: 8px 0; color: var(--muted); text-align: center; }
+.lib-nota { margin-top: 2px; }
+@media (max-width: 640px) {
+  .barras { display: none; }
+  .cartao-tocar { gap: 10px; padding: 8px; }
+  .nivel { width: 44px; height: 44px; }
+  #libFiltro { width: auto; display: inline-flex; }
+}
