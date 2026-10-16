@@ -46,9 +46,9 @@ export class Renderer {
   }
 
   resize() {
-    const r = this.cv.getBoundingClientRect();
+    // Tamanho do layout, não da caixa na tela: com a tela virada por CSS a caixa vem girada.
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.W = r.width; this.H = r.height;
+    this.W = this.cv.clientWidth; this.H = this.cv.clientHeight;
     this.cv.width = Math.round(this.W * this.dpr);
     this.cv.height = Math.round(this.H * this.dpr);
     this.keyH = Math.max(70, Math.min(170, this.W * 0.11, this.H * 0.32));

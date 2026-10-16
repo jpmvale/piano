@@ -68,6 +68,19 @@ header {
 .menu-item:hover, .menu-item:focus-visible { background: var(--line); outline: none; }
 #songTitleBtn { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 34px; }
 #theaterBtn { margin-left: auto; }
+/* Virar a tela: só no celular e em tela cheia, ao lado do botão de sair */
+#rotateBtn { display: none; margin-left: auto; }
+body.phone.theater #rotateBtn { display: inline-flex; }
+body.phone.theater #theaterBtn { margin-left: 0; }
+/* Sem travar a orientação (iPhone): o app inteiro gira 90° e fica deitado */
+html.rotated body {
+  position: fixed; top: 0; left: 0;
+  width: 100vh; height: 100vw;
+  width: 100dvh; height: 100dvw;
+  transform-origin: top left;
+  transform: translateX(100vw) rotate(90deg);
+  overflow: hidden;
+}
 
 /* Tela cheia / modo teatro: o palco ocupa tudo, sobra só a linha do tempo e o tocar */
 body.theater { grid-template-rows: minmax(0, 1fr) auto; }
