@@ -229,6 +229,8 @@ function setTheater(on: boolean) {
   // A tela cheia do navegador é um extra: onde não existe (iPhone), fica só o modo teatro.
   if (on && !fs) document.documentElement.requestFullscreen?.().catch(() => { /* sem permissão */ });
   if (!on && fs) void document.exitFullscreen();
+  if (!on) unrotate();
+  void updateWakeLock();
 }
 $('theaterBtn').onclick = () => setTheater(!document.body.classList.contains('theater'));
 // Esc do navegador sai da tela cheia: sai do modo teatro junto.
@@ -236,12 +238,64 @@ document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && document.body.classList.contains('theater')) setTheater(false);
 });
 
+// ---------- Celular: virar a tela e não deixar apagar ----------
+const isPhone = matchMedia('(hover: none) and (pointer: coarse)').matches;
+document.body.classList.toggle('phone', isPhone);
+type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void>; unlock?: () => void };
+const orientation = screen.orientation as Lockable | undefined;
+let locked = false;
+const portrait = () => innerHeight > innerWidth;
+// Onde o navegador não deixa travar a orientação (iPhone), o app é girado 90° por CSS.
+function setCssRotated(on: boolean) {
+  document.documentElement.classList.toggle('rotated', on);
+}
+function unrotate() {
+  setCssRotated(false);
+  if (locked) { orientation?.unlock?.(); locked = false; }
+}
+$('rotateBtn').onclick = async () => {
+  if (document.documentElement.classList.contains('rotated')) { setCssRotated(false); return; }
+  try {
+    if (!orientation?.lock) throw new Error('sem lock');
+    await orientation.lock(portrait() ? 'landscape' : 'portrait');
+    locked = true;
+  } catch {
+    if (portrait()) setCssRotated(true);
+  }
+};
+// Girou o celular de verdade para deitado: a rotação por CSS não é mais necessária.
+addEventListener('resize', () => { if (!portrait()) setCssRotated(false); });
+// Ponto do toque nas coordenadas do elemento, também com o app girado por CSS.
+function localPoint(el: Element, e: PointerEvent) {
+  const r = el.getBoundingClientRect();
+  if (document.documentElement.classList.contains('rotated')) return { x: e.clientY - r.top, y: r.right - e.clientX, w: r.height };
+  return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width };
+}
+
+// Tela sempre acesa no celular enquanto está em tela cheia ou tocando.
+let wakeLock: WakeLockSentinel | null = null;
+async function updateWakeLock() {
+  const want = isPhone && document.visibilityState === 'visible'
+    && (document.body.classList.contains('theater') || player.playing);
+  if (want && !wakeLock && 'wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch { /* bateria fraca ou sem permissão */ }
+  } else if (!want && wakeLock) {
+    const w = wakeLock; wakeLock = null; void w.release();
+  }
+}
+// O navegador solta o bloqueio quando a aba some; pede de novo ao voltar.
+document.addEventListener('visibilitychange', () => void updateWakeLock());
+
 // ---------- Transporte ----------
 function setPlayIcon() {
   $('play').setAttribute('aria-label', player.playing ? 'Pausar' : 'Tocar');
   $('playIcon').innerHTML = player.playing
     ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>'
     : '<path d="M8 5v14l11-7z"/>';
+  void updateWakeLock();
 }
 function togglePlay() {
   piano.unlock();
@@ -344,7 +398,7 @@ const cv = $<HTMLCanvasElement>('cv');
 let drag: { y0: number; t0: number } | null = null;
 const pointerKey = new Map<number, number>();
 cv.addEventListener('pointerdown', e => {
-  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const { x, y } = localPoint(cv, e);
   cv.setPointerCapture(e.pointerId);
   const m = renderer.keyAt(x, y);
   if (m != null) { pointerKey.set(e.pointerId, m); userNote(m, true); return; }
@@ -352,7 +406,7 @@ cv.addEventListener('pointerdown', e => {
   cv.classList.add('dragging');
 });
 cv.addEventListener('pointermove', e => {
-  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const { x, y } = localPoint(cv, e);
   if (drag) { player.seek(drag.t0 + (y - drag.y0) / renderer.pps); return; }
   const cur = pointerKey.get(e.pointerId);
   if (cur != null && e.buttons) {
@@ -377,8 +431,8 @@ const track = $('track');
 let trackDrag = false;
 const span = () => player.end - player.start;
 function trackSeek(e: PointerEvent) {
-  const r = track.getBoundingClientRect();
-  player.seek(player.start + ((e.clientX - r.left) / r.width) * span());
+  const { x, w } = localPoint(track, e);
+  player.seek(player.start + (x / w) * span());
 }
 track.addEventListener('pointerdown', e => { trackDrag = true; track.setPointerCapture(e.pointerId); trackSeek(e); });
 track.addEventListener('pointermove', e => { if (trackDrag) trackSeek(e); });
