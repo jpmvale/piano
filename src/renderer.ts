@@ -4,6 +4,7 @@ import type { Player } from './player';
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 const VISIBLE_SECONDS = 3;
+const MIN_LABEL = 10;
 export const NAMES = {
   en: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
   pt: ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'],
@@ -162,12 +163,23 @@ export class Renderer {
       ctx.stroke();
       ctx.globalAlpha = p.mode !== 'listen' && !mine ? 0.45 : 1;
       const label = this.label(n.midi);
-      if (label && h > labelSize + 4 && yBottom <= hitY + 1) {
-        ctx.font = `800 ${labelSize}px "Baloo 2", system-ui, sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      if (label && yBottom <= hitY + 1) {
+        // Tamanho cheio quando cabe; em nota curta a letra encolhe (até um mínimo
+        // legível) e fica centrada na barra, mas aparece sempre.
+        const full = h > labelSize + 4;
+        const size = full ? labelSize : Math.max(MIN_LABEL, h - 3);
+        if (!full && h < size + 3) {
+          // Barra mais baixa que a letra: uma etiqueta da mesma cor segura a letra
+          const ph = size + 4;
+          ctx.fillStyle = missed ? '#4a4f5e' : k.black ? c.dark : c.fill;
+          this.rr(x, top + h / 2 - ph / 2, w, ph, Math.min(4, w * 0.3));
+          ctx.fill();
+        }
+        ctx.font = `800 ${size}px "Baloo 2", system-ui, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = full ? 'alphabetic' : 'middle';
         ctx.fillStyle = missed ? '#c9ccd6' : k.black ? '#ffffff' : c.text;
         const fit = Math.min(1, (w - 2) / ctx.measureText(label).width);
-        ctx.save(); ctx.translate(x + w / 2, bottom - 4); ctx.scale(fit, fit);
+        ctx.save(); ctx.translate(x + w / 2, full ? bottom - 4 : top + h / 2 + size * 0.08); ctx.scale(fit, fit);
         ctx.fillText(label, 0, 0);
         ctx.restore();
         ctx.textAlign = 'left';
@@ -203,11 +215,16 @@ export class Renderer {
         ctx.fillStyle = gr; ctx.fill();
       }
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      if (k.midi % 12 === 0) {
-        const oct = Math.floor(k.midi / 12) - 1;
-        ctx.font = `600 ${Math.max(9, Math.min(15, this.whiteW * 0.42))}px "Nunito Sans", system-ui, sans-serif`;
-        ctx.fillStyle = fill ? 'rgba(0,0,0,0.55)' : '#9aa0ae';
-        ctx.fillText((this.names === 'pt' ? 'Dó' : 'C') + oct, k.x + k.w / 2, hitY + keyH - 6);
+      // Letra de cada tecla branca (o Dó leva também a oitava)
+      const name = this.names === 'none' ? (k.midi % 12 === 0 ? 'C' : '') : NAMES[this.names][k.midi % 12];
+      if (name && (k.midi % 12 === 0 || this.whiteW >= 12)) {
+        const txt = k.midi % 12 === 0 ? name + (Math.floor(k.midi / 12) - 1) : name;
+        ctx.font = `${k.midi % 12 === 0 ? 700 : 600} ${Math.max(9, Math.min(15, this.whiteW * 0.42))}px "Nunito Sans", system-ui, sans-serif`;
+        ctx.fillStyle = fill ? 'rgba(0,0,0,0.55)' : k.midi % 12 === 0 ? '#7d8395' : '#a4a9b6';
+        const fit = Math.min(1, (k.w - 3) / ctx.measureText(txt).width);
+        ctx.save(); ctx.translate(k.x + k.w / 2, hitY + keyH - 6); ctx.scale(fit, fit);
+        ctx.fillText(txt, 0, 0);
+        ctx.restore();
       }
       const pc = this.pcLabels?.get(k.midi);
       if (pc && this.whiteW >= 16) {
