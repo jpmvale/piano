@@ -1,3 +1,32 @@
+/*
+ * Fontes servidas pela PRÓPRIA máquina, e não pelo Google.
+ *
+ * Os pacotes `@fontsource/*` trazem os .woff2 como arquivos do projeto; o Vite os empacota e o
+ * nginx os serve com o resto. Nada é buscado em fonts.googleapis.com ou fonts.gstatic.com.
+ *
+ * Duas razões. Privacidade: cada visita mandava o IP de quem toca para um terceiro que não precisa
+ * saber que esta página existe. E a CSP: sem origem externa, `style-src` e `font-src` do proxy
+ * ficam em `'self'` puro, sem exceção para alguém manter.
+ *
+ * Os pesos abaixo são EXATAMENTE os que a folha do Google pedia — Baloo 500/700/800, Nunito Sans
+ * 400/600/700, JetBrains Mono 500/700. Tirar um aqui some com ele na tela, sem erro em lugar
+ * nenhum: o navegador cai no fallback e o texto fica com outro peso.
+ *
+ * `latin-` e não o arquivo cheio: o pacote completo traz todos os subconjuntos — devanagári,
+ * cirílico, vietnamita —, e o Baloo 2 sozinho levava três arquivos de ~65 KB de devanagári. Em
+ * tempo de execução isso não custaria nada (o `unicode-range` só baixa o que a página usa), mas o
+ * build do Artifact EMBUTE tudo, e o arquivo único engordaria com alfabetos que o piano nunca
+ * mostra. O site é em português.
+ */
+@import '@fontsource/baloo-2/latin-500.css';
+@import '@fontsource/baloo-2/latin-700.css';
+@import '@fontsource/baloo-2/latin-800.css';
+@import '@fontsource/nunito-sans/latin-400.css';
+@import '@fontsource/nunito-sans/latin-600.css';
+@import '@fontsource/nunito-sans/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+
 /* Layout: app de tela cheia. Cabeçalho com músicas, palco (notas caindo + teclado) ocupando o resto, controles embaixo. */
 :root {
   color-scheme: dark;
