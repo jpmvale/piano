@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/to-artifact.mjs",
-    "samples": "bash scripts/make-samples.sh"
+    "build": "tsc --noEmit && vite build",
+    "samples": "bash scripts/make-samples.sh",
+    "build:artifact": "vite build --config vite.artifact.config.ts && node scripts/to-artifact.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

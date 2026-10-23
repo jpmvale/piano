@@ -9,7 +9,9 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist/index.html /usr/share/nginx/html/index.html
-# Timbres além do piano: baixados só quando a pessoa escolhe (public/timbres)
-COPY --from=build /app/dist/timbres /usr/share/nginx/html/timbres
+# A pasta `dist` INTEIRA: desde 23/10/2026 o build da web emite JS, CSS e as
+# amostras como arquivos separados, para a CSP poder recusar script embutido.
+# Os timbres de `public/timbres` já vinham por aqui — a cópia separada deles
+# virou redundante e saiu.
+COPY --from=build /app/dist/ /usr/share/nginx/html/
 EXPOSE 8080
